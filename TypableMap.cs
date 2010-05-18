@@ -99,6 +99,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		private Regex _regex;
 
 		public Session Session { get; private set; }
+		public Object State { get; private set; }
 		public ITypableMapGenericRepository<T> TypableMap { get; private set; }
 		public Int32 TypableMapKeySize
 		{
@@ -119,9 +120,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			}
 		}
 
-		public TypableMapGenericCommandProcessor(ITypableMapGenericRepositoryFactory<T> factory, Session session, Int32 keySize)
+		public TypableMapGenericCommandProcessor(ITypableMapGenericRepositoryFactory<T> factory, Session session, Int32 keySize, Object state)
 		{
 			Session = session;
+			State = state;
 
 			_keySize = keySize;
 			_commands = new Dictionary<String, ITypableMapGenericCommand<T>>(StringComparer.InvariantCultureIgnoreCase);

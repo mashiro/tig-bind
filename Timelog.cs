@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Xml;
 using System.Xml.Serialization;
 using System.IO;
+using Misuzilla.Net.Irc;
 using Misuzilla.Applications.TwitterIrcGateway;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 
@@ -26,8 +27,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		[Description("一回の取得につき何件取得するかを指定します (10-50)")]
 		public Int32 FetchCount { get; set; }
 
+		[Browsable(false)]
+		[XmlIgnore]
+		public Timelog.Api Api { get; private set; }
+
 		private ITypableMapGenericRepositoryFactory<Timelog.Entry> _typableMapFactory;
-		private TypableMapGenericCommandProcessor<Timelog.Entry> _typableMapCommands;		
+		private TypableMapGenericCommandProcessor<Timelog.Entry> _typableMapCommands;
 		private Boolean _isFirstTime = true;
 		private DateTime _since = DateTime.MinValue;
 
@@ -41,14 +46,19 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			Password = String.Empty;
 			ChannelName = "#" + SourceName;
 			FetchCount = 10;
+			Api = new Timelog.Api();
 		}
 
 		public override void Initialize(OtherSourceAddIn addIn)
 		{
 			base.Initialize(addIn);
 
+			Api.Username = Username;
+			Api.Password = OtherSourceUtility.Decrypt(Password);
+
 			_typableMapFactory = new TypableMapGenericMemoryRepositoryFactory<Timelog.Entry>();
-			_typableMapCommands = new TypableMapGenericCommandProcessor<Timelog.Entry>(_typableMapFactory, AddIn.CurrentSession, AddIn.CurrentSession.Config.TypableMapKeySize);
+			_typableMapCommands = new TypableMapGenericCommandProcessor<Timelog.Entry>(_typableMapFactory, AddIn.CurrentSession, AddIn.CurrentSession.Config.TypableMapKeySize, this);
+			_typableMapCommands.AddCommand(new Timelog.ReCommand());
 		}
 
 		public override string ToShortString()
@@ -70,8 +80,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		{
 			try
 			{
-				Timelog.Api api = new Timelog.Api() { Username = Username, Password = OtherSourceUtility.Decrypt(Password) };
-				var memos = api.GetMemos(FetchCount, _since);
+				var memos = Api.GetMemos(FetchCount, _since);
 				foreach (var entry in memos.Entry.Reverse<Timelog.Entry>())
 				{
 					SendEntry(entry, _isFirstTime);
@@ -107,13 +116,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 
 		public void MessageReceived(StatusUpdateEventArgs e)
 		{
-			e.Cancel = true;
-
 			if (IsValid())
 			{
-				Timelog.Api api = new Timelog.Api() { Username = Username, Password = OtherSourceUtility.Decrypt(Password) };
-				api.New(e.Text);
+				if (AddIn.CurrentSession.Config.EnableTypableMap)
+				{
+					if (_typableMapCommands.Process(e.ReceivedMessage))
+					{
+						e.Cancel = true;
+						return;
+					}
+				}
+
+				Api.New(e.Text, null);
 			}
+
+			e.Cancel = true;
 		}
 		#endregion
 	}
@@ -134,6 +151,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		public void Username(String s)
 		{
 			Item.Username = s;
+			Item.Api.Username = s;
 			Console.NotifyMessage(String.Format("Username = {0}", Item.Username));
 		}
 
@@ -141,6 +159,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		public void Password(String s)
 		{
 			Item.Password = OtherSourceUtility.Encrypt(s);
+			Item.Api.Password = s;
 			Console.NotifyMessage(String.Format("Password = {0}", OtherSourceUtility.Decrypt(Item.Password)));
 		}
 
@@ -163,18 +182,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 
 	namespace Timelog
 	{
-		public class TypableMapTimelogRepositoryFactory : TypableMapGenericMemoryRepositoryFactory<Timelog.Entry>
-		{
-		}
-
-		public class TypableMapTimelogCommandProcessor : TypableMapGenericCommandProcessor<Timelog.Entry>
-		{
-			public TypableMapTimelogCommandProcessor(ITypableMapGenericRepositoryFactory<Timelog.Entry> factory, Session session, Int32 keySize)
-				: base(factory, session, keySize)
-			{
-			}
-		}
-
 		public static class Utility
 		{
 			public static DateTime ParseDateTime(String str)
@@ -196,10 +203,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 				return Deserialize<Memos>(data);
 			}
 
-			public void New(String text)
+			public void New(String text, String reMsgId)
 			{
 				NameValueCollection options = new NameValueCollection();
 				options.Add("text", Uri.EscapeDataString(text));
+				if (!String.IsNullOrEmpty(reMsgId))
+					options.Add("remsgid", reMsgId);
 #if DEBUG
 				String data = Post("http://api.timelog.jp/newtest.asp", options);
 #else
@@ -210,6 +219,35 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			}
 		}
 
+		#region Command
+		public class ReCommand : ITypableMapGenericCommand<Timelog.Entry>
+		{
+			public string CommandName { get { return "re"; } }
+
+			public bool Process(TypableMapGenericCommandProcessor<Entry> processor, PrivMsgMessage msg, Entry value, string args)
+			{
+				var session = processor.Session;
+				if (args.Trim() == String.Empty)
+				{
+					session.SendChannelMessage(msg.Receiver, Server.ServerNick, "返信に空メッセージの送信はできません。", true, false, false, true);
+					return true;
+				}
+
+				var item = processor.State as OtherSourceTimelogItem;				
+
+				// エコーバック
+				String replyMsg = String.Format("@{0} {1}", value.Author.Id, args);
+				session.SendChannelMessage(msg.Receiver, item.Username, replyMsg, true, false, false, false);
+
+				// 返信
+				item.Api.New(replyMsg, value.Id);
+
+				return true;
+			}
+		}
+		#endregion
+
+		#region Model
 		[XmlRoot("memos")]
 		public class Memos
 		{
@@ -308,5 +346,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			[XmlAttribute("href")]
 			public String HRef { get; set; }
 		}
+		#endregion
 	}
 }
