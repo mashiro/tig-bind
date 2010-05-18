@@ -2,14 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.ComponentModel;
-using System.Net;
 using System.Xml;
 using System.Xml.Serialization;
 using System.IO;
-using Spica.Xml.Feed;
-using Misuzilla.Net.Irc;
 using Misuzilla.Applications.TwitterIrcGateway;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 
@@ -59,6 +55,13 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			_sinceId = 1;
 		}
 
+		protected override bool IsValid()
+		{
+			return base.IsValid()
+				&& !String.IsNullOrEmpty(UserId)
+				&& !String.IsNullOrEmpty(ListId);
+		}
+
 		/// <summary>
 		/// タイマーのコールバック処理
 		/// </summary>
@@ -91,10 +94,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		private void SendStatus(Status status, Boolean notice)
 		{
 			String content = AddIn.ApplyTypableMap(status.Text, status);
-			foreach (String line in OtherSourceUtility.SplitLineBreak(content))
-			{
-				SendMessage(ChannelName, status.User.ScreenName, line, notice);
-			}
+			SendMessage(ChannelName, status.User.ScreenName, content, notice);
 
 			if (Duplicate)
 			{

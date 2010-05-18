@@ -8,7 +8,6 @@ using System.Net;
 using System.Xml;
 using System.Xml.Serialization;
 using Spica.Xml.Feed;
-using Misuzilla.Net.Irc;
 using Misuzilla.Applications.TwitterIrcGateway;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 
@@ -69,6 +68,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			return String.Format("{0} ({1})", Url, Interval);
 		}
 
+		protected override bool IsValid()
+		{
+			return base.IsValid()
+				&& !String.IsNullOrEmpty(Url);
+		}
+
 		/// <summary>
 		/// タイマーのコールバック処理
 		/// </summary>
@@ -116,11 +121,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			String replacedSender = ReplaceFormattedString(SenderNick, doc, item);
 			String replacedContent = ReplaceFormattedString(ContentFormat, doc, item);
 			replacedContent = AddIn.ApplyTypableMap(replacedContent, FeedItemToStatus(item));
-
-			foreach (String line in OtherSourceUtility.SplitLineBreak(replacedContent))
-			{
-				SendMessage(ChannelName, replacedSender, line, false);
-			}
+			SendMessage(ChannelName, replacedSender, replacedContent, false);
 		}
 
 		/// <summary>

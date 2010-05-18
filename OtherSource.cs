@@ -71,15 +71,18 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			if (String.IsNullOrEmpty(receiver))
 				receiver = AddIn.CurrentSession.CurrentNick;
 
-			IRCMessage message = null;
-			if (notice)
-				message = new NoticeMessage(receiver, content);
-			else
-				message = new PrivMsgMessage(receiver, content);
+			foreach (String line in OtherSourceUtility.SplitLineBreak(content))
+			{
+				IRCMessage message = null;
+				if (notice)
+					message = new NoticeMessage(receiver, line);
+				else
+					message = new PrivMsgMessage(receiver, line);
 
-			message.SenderNick = sender;
-			message.SenderHost = String.Format("{0}@{1}", SourceName.ToLowerInvariant(), Server.ServerName);
-			AddIn.CurrentSession.Send(message);
+				message.SenderNick = sender;
+				message.SenderHost = String.Format("{0}@{1}", SourceName.ToLowerInvariant(), Server.ServerName);
+				AddIn.CurrentSession.Send(message);
+			}
 		}
 
 		protected void SendException(String receiver, Exception exception)
@@ -117,13 +120,18 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			base.Uninitialize();
 		}
 
+		protected virtual Boolean IsValid()
+		{
+			return Enabled;
+		}
+
 		#region Timer
 		/// <summary>
 		/// タイマーの状態を更新します。
 		/// </summary>
 		public void Update()
 		{
-			if (Enabled)
+			if (IsValid())
 				Start();
 			else
 				Stop();
@@ -193,9 +201,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 
 	public class OtherSourceConfiguration : IConfiguration
 	{
-		[Description("TypableMapを有効化または無効化します")]
-		public Boolean EnableTypableMap { get; set; }
-
 		[Description("チャンネル作成時のモードを指定します")]
 		public String InitialModes { get; set; }
 
@@ -207,7 +212,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 
 		public OtherSourceConfiguration()
 		{
-			EnableTypableMap = false;
 			InitialModes = "+pni";
 			Items = new List<OtherSourceItemBase>();
 		}
@@ -449,7 +453,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 				item.Initialize(this);
 			}
 
-			CurrentSession.UpdateStatusRequestReceived += new EventHandler<StatusUpdateEventArgs>(CurrentSession_UpdateStatusRequestReceived);
+			CurrentSession.PreMessageReceived += new EventHandler<MessageReceivedEventArgs>(CurrentSession_PreMessageReceived);
 			CurrentSession.AddInsLoadCompleted += (sender, e) =>
 			{
 				// コンテキストを登録
@@ -474,9 +478,14 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			base.Uninitialize();
 		}
 
-		private void CurrentSession_UpdateStatusRequestReceived(object sender, StatusUpdateEventArgs e)
+		private void CurrentSession_PreMessageReceived(object sender, MessageReceivedEventArgs e)
 		{
-			String receiver = e.ReceivedMessage.Receiver;
+			PrivMsgMessage message = e.Message as PrivMsgMessage;
+			if (message == null)
+				return;
+
+			StatusUpdateEventArgs eventArgs = new StatusUpdateEventArgs(message, message.Content);
+			String receiver = message.Receiver;
 			if (!String.IsNullOrEmpty(receiver))
 			{
 				foreach (var item in Config.Items)
@@ -487,11 +496,13 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 						var target = messageReceivable.GetChannelName();
 						if (String.Compare(target, receiver, true) == 0)
 						{
-							messageReceivable.MessageReceived(e);
+							messageReceivable.MessageReceived(eventArgs);
 						}
 					}
 				}
 			}
+
+			e.Cancel |= eventArgs.Cancel;
 		}
 
 		/// <summary>
@@ -515,11 +526,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		/// </summary>
 		internal String ApplyTypableMap(String str, Status status)
 		{
-			if (Config.EnableTypableMap)
+			if (_typableMapCommands != null)
+				return ApplyTypableMap(str, status, new TypableMapStatusRepositoryWrapper(_typableMapCommands.TypableMap));
+			return str;
+		}
+
+		/// <summary>
+		/// TypableMapの情報を付与
+		/// </summary>
+		internal String ApplyTypableMap<T>(String str, T value, ITypableMapGenericRepository<T> typableMap)
+		{
+			if (CurrentSession.Config.EnableTypableMap)
 			{
-				if (_typableMapCommands != null)
+				if (typableMap != null)
 				{
-					String typableMapId = _typableMapCommands.TypableMap.Add(status);
+					String typableMapId = typableMap.Add(value);
 
 					// TypableMapKeyColorNumber = -1 の場合には色がつかなくなる
 					if (CurrentSession.Config.TypableMapKeyColorNumber < 0)
