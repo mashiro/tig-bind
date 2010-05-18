@@ -9,9 +9,9 @@ using System.IO;
 using Misuzilla.Applications.TwitterIrcGateway;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 {
-	public class OtherSourceListsItem : OtherSourceTimerItemBase, IMessageReceivable
+	public class TunnelListsItem : TunnelTimerItemBase, IMessageReceivable
 	{
 		[Description("ユーザ名、またはユーザ ID を指定します")]
 		public String UserId { get; set; }
@@ -32,9 +32,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		private Int64 _sinceId = 1;
 
 		internal override string SourceName { get { return "Lists"; } }
-		internal override Type ContextType { get { return typeof(OtherSourceListsEditContext); } }
+		internal override Type ContextType { get { return typeof(TunnelListsEditContext); } }
 
-		public OtherSourceListsItem()
+		public TunnelListsItem()
 		{
 			Interval = 90;
 			UserId = String.Empty;
@@ -145,9 +145,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		#endregion
 	}
 
-	public class OtherSourceListsEditContext : OtherSourceEditContextBase
+	public class TunnelListsEditContext : TunnelEditContextBase
 	{
-		public new OtherSourceListsItem Item { get { return base.Item as OtherSourceListsItem; } set { base.Item = value; } }
+		public new TunnelListsItem Item { get { return base.Item as TunnelListsItem; } set { base.Item = value; } }
 
 		[Description("リストの取得を試みます")]
 		public void Test()

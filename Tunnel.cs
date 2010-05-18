@@ -14,7 +14,7 @@ using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns.Console;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns.TypableMap;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 {
 	#region Interface
 	public interface IMessageReceivable
@@ -26,21 +26,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 
 	#region Configuration
 	[XmlType("Item")]
-	public abstract class OtherSourceItemBase : IConfiguration
+	public abstract class TunnelItemBase : IConfiguration
 	{
 		[Description("ソースを有効化または無効化します")]
 		public Boolean Enabled { get; set; }
 
-		internal OtherSourceAddIn AddIn { get; set; }
+		internal TunnelAddIn AddIn { get; set; }
 		internal abstract Type ContextType { get; }
 		internal abstract String SourceName { get; }
 
-		public OtherSourceItemBase()
+		public TunnelItemBase()
 		{
 			Enabled = true;
 		}
 
-		public virtual void Initialize(OtherSourceAddIn addIn)
+		public virtual void Initialize(TunnelAddIn addIn)
 		{
 			AddIn = addIn;
 		}
@@ -71,7 +71,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			if (String.IsNullOrEmpty(receiver))
 				receiver = AddIn.CurrentSession.CurrentNick;
 
-			foreach (String line in OtherSourceUtility.SplitLineBreak(content))
+			foreach (String line in TunnelUtility.SplitLineBreak(content))
 			{
 				IRCMessage message = null;
 				if (notice)
@@ -89,12 +89,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		{
 			if (!AddIn.Config.IgnoreWatchError)
 			{
-				SendMessage(receiver, OtherSourceAddIn.DefaultSenderNick, OtherSourceUtility.RemoveLineBreak(exception.Message), true);
+				SendMessage(receiver, TunnelAddIn.DefaultSenderNick, TunnelUtility.RemoveLineBreak(exception.Message), true);
 			}
 		}
 	}
 
-	public abstract class OtherSourceTimerItemBase : OtherSourceItemBase
+	public abstract class TunnelTimerItemBase : TunnelItemBase
 	{
 		[Description("ソースをチェックする間隔を秒単位で指定します")]
 		public Int32 Interval { get; set; }
@@ -103,12 +103,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		private Timer _timer = null;
 		private Object _timerSync = new object();
 
-		public OtherSourceTimerItemBase()
+		public TunnelTimerItemBase()
 		{
 			Interval = 90;
 		}
 
-		public override void Initialize(OtherSourceAddIn addIn)
+		public override void Initialize(TunnelAddIn addIn)
 		{
 			base.Initialize(addIn);
 			Update();
@@ -199,7 +199,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		#endregion
 	}
 
-	public class OtherSourceConfiguration : IConfiguration
+	public class TunnelConfiguration : IConfiguration
 	{
 		[Description("チャンネル作成時のモードを指定します")]
 		public String InitialModes { get; set; }
@@ -208,28 +208,28 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		public Boolean IgnoreWatchError { get; set; }
 
 		[Browsable(false)]
-		public List<OtherSourceItemBase> Items { get; set; }
+		public List<TunnelItemBase> Items { get; set; }
 
-		public OtherSourceConfiguration()
+		public TunnelConfiguration()
 		{
 			InitialModes = "+pni";
-			Items = new List<OtherSourceItemBase>();
+			Items = new List<TunnelItemBase>();
 		}
 	}
 	#endregion
 
 	#region Context
 	[Description("ソースの設定を行うコンテキストに切り替えます")]
-	public class OtherSourceContext : Context
+	public class TunnelContext : Context
 	{
-		private OtherSourceAddIn AddIn { get { return CurrentSession.AddInManager.GetAddIn<OtherSourceAddIn>(); } }
+		private TunnelAddIn AddIn { get { return CurrentSession.AddInManager.GetAddIn<TunnelAddIn>(); } }
 
 		public override IConfiguration[] Configurations { get { return new IConfiguration[] { AddIn.Config }; } }
 		protected override void OnConfigurationChanged(IConfiguration config, System.Reflection.MemberInfo memberInfo, object value)
 		{
-			if (config is OtherSourceConfiguration)
+			if (config is TunnelConfiguration)
 			{
-				AddIn.Config = config as OtherSourceConfiguration;
+				AddIn.Config = config as TunnelConfiguration;
 				AddIn.SaveConfig(true);
 			}
 		}
@@ -239,9 +239,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		{
 			FindAt(arg, item =>
 			{
-				if (item is OtherSourceTimerItemBase)
+				if (item is TunnelTimerItemBase)
 				{
-					var timerItem = item as OtherSourceTimerItemBase;
+					var timerItem = item as TunnelTimerItemBase;
 					timerItem.Force();
 				}
 
@@ -295,7 +295,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			FindAt(arg, item =>
 			{
 				// コンテキストを追加
-				OtherSourceEditContextBase context = Console.GetContext(item.ContextType, CurrentServer, CurrentSession) as OtherSourceEditContextBase;
+				TunnelEditContextBase context = Console.GetContext(item.ContextType, CurrentServer, CurrentSession) as TunnelEditContextBase;
 				context.Item = item;
 				context.IsNew = false;
 				Console.PushContext(context);
@@ -305,19 +305,19 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		[Description("ソースを新規追加します")]
 		public void New(String itemTypeName)
 		{
-			Type itemType = Type.GetType(String.Format("{0}.OtherSource{1}Item", GetType().Namespace, itemTypeName), false, true);
-			if (itemType == null || !itemType.IsSubclassOf(typeof(OtherSourceItemBase)))
+			Type itemType = Type.GetType(String.Format("{0}.Tunnel{1}Item", GetType().Namespace, itemTypeName), false, true);
+			if (itemType == null || !itemType.IsSubclassOf(typeof(TunnelItemBase)))
 			{
 				Console.NotifyMessage("不明なソースの種類が指定されました。");
 				return;
 			}
 
 			// 設定を作成
-			OtherSourceItemBase item = Activator.CreateInstance(itemType) as OtherSourceItemBase;
+			TunnelItemBase item = Activator.CreateInstance(itemType) as TunnelItemBase;
 			item.AddIn = AddIn;
 
 			// コンテキストを追加
-			OtherSourceEditContextBase context = Console.GetContext(item.ContextType, CurrentServer, CurrentSession) as OtherSourceEditContextBase;
+			TunnelEditContextBase context = Console.GetContext(item.ContextType, CurrentServer, CurrentSession) as TunnelEditContextBase;
 			context.Item = item;
 			context.IsNew = true;
 			Console.PushContext(context);
@@ -331,12 +331,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 				AddIn.SaveConfig(true);
 				Console.NotifyMessage(String.Format("ソース {0} を{1}化しました。", item, (enable ? "有効" : "無効")));
 
-				if (item is OtherSourceTimerItemBase)
-					(item as OtherSourceTimerItemBase).Update();
+				if (item is TunnelTimerItemBase)
+					(item as TunnelTimerItemBase).Update();
 			});
 		}
 
-		private void FindAt(String arg, Action<OtherSourceItemBase> action)
+		private void FindAt(String arg, Action<TunnelItemBase> action)
 		{
 			Int32 index;
 			if (Int32.TryParse(arg, out index))
@@ -357,10 +357,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		}
 	}
 
-	public abstract class OtherSourceEditContextBase : Context
+	public abstract class TunnelEditContextBase : Context
 	{
-		protected OtherSourceAddIn AddIn { get { return CurrentSession.AddInManager.GetAddIn<OtherSourceAddIn>(); } }
-		public OtherSourceItemBase Item { get; set; }
+		protected TunnelAddIn AddIn { get { return CurrentSession.AddInManager.GetAddIn<TunnelAddIn>(); } }
+		public TunnelItemBase Item { get; set; }
 		public Boolean IsNew { get; set; }
 		public override IConfiguration[] Configurations { get { return new IConfiguration[] { Item }; } }
 		public override string ContextName { get { return (IsNew ? "New" : "Edit") + Item.SourceName; } }
@@ -425,20 +425,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 	}
 	#endregion
 
-	public class OtherSourceAddIn : AddInBase
+	public class TunnelAddIn : AddInBase
 	{
-		public const String DefaultSenderNick = "$OtherSource";
-		public const String DefaultChannelName = "#OtherSource";
+		public const String DefaultSenderNick = "$Tunnel";
+		public const String DefaultChannelName = "#Tunnel";
 
-		public OtherSourceConfiguration Config { get; set; }
+		public TunnelConfiguration Config { get; set; }
 		private TypableMapCommandProcessor _typableMapCommands = null;
 		private DateTime _lastSaveTime = DateTime.Now;
 
 		// TODO: 無理矢理過ぎるのでどうにかしたい
 		internal new Server CurrentServer { get { return base.CurrentServer; } }
 		internal new Session CurrentSession { get { return base.CurrentSession; } }
+		internal Boolean EnableTypableMap { get { return CurrentSession.Config.EnableTypableMap; } }
 
-		public OtherSourceAddIn()
+		public TunnelAddIn()
 		{
 		}
 
@@ -447,7 +448,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			base.Initialize();
 
 			// 設定を読み込みと関連付け
-			Config = CurrentSession.AddInManager.GetConfig<OtherSourceConfiguration>();
+			Config = CurrentSession.AddInManager.GetConfig<TunnelConfiguration>();
 			foreach (var item in Config.Items)
 			{
 				item.Initialize(this);
@@ -457,7 +458,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			CurrentSession.AddInsLoadCompleted += (sender, e) =>
 			{
 				// コンテキストを登録
-				CurrentSession.AddInManager.GetAddIn<ConsoleAddIn>().RegisterContext<OtherSourceContext>();
+				CurrentSession.AddInManager.GetAddIn<ConsoleAddIn>().RegisterContext<TunnelContext>();
 
 				// TypableMapが使えるかどうか
 				var typableMapSupport = CurrentSession.AddInManager.GetAddIn<TypableMapSupport>();
@@ -536,7 +537,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		/// </summary>
 		internal String ApplyTypableMap<T>(String str, T value, ITypableMapGenericRepository<T> typableMap)
 		{
-			if (CurrentSession.Config.EnableTypableMap)
+			if (EnableTypableMap)
 			{
 				if (typableMap != null)
 				{

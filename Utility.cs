@@ -7,11 +7,11 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Reflection;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 {
-	public static class OtherSourceUtility
+	public static class TunnelUtility
 	{
-		private static readonly String _sharedKey = "Spica.Applications.TwitterIrcGateway.AddIns.OtherSource";
+		private static readonly String _sharedKey = "Spica.Applications.TwitterIrcGateway.AddIns.Tunnel";
 		private static readonly Regex _regexLineBreak = new Regex(@"\r\n|\r|\n");
 
 		#region Crypt

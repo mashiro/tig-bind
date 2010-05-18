@@ -11,9 +11,9 @@ using Spica.Xml.Feed;
 using Misuzilla.Applications.TwitterIrcGateway;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 {
-	public class OtherSourceFeedItem : OtherSourceTimerItemBase, IMessageReceivable
+	public class TunnelFeedItem : TunnelTimerItemBase, IMessageReceivable
 	{
 		[Description("フィードの URL を指定します")]
 		public String Url { get; set; }
@@ -47,9 +47,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		private static readonly Regex _regexHtmlTag = new Regex(@"<[^>]*>");
 
 		internal override string SourceName { get { return "Feed"; } }
-		internal override Type ContextType { get { return typeof(OtherSourceFeedEditContext); } }
+		internal override Type ContextType { get { return typeof(TunnelFeedEditContext); } }
 
-		public OtherSourceFeedItem()
+		public TunnelFeedItem()
 		{
 			Interval = 60 * 60;
 			Url = String.Empty;
@@ -85,7 +85,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 				NetworkCredential credential = null;
 				if (!String.IsNullOrEmpty(Username) && !String.IsNullOrEmpty(Password))
 				{
-					String password = OtherSourceUtility.Decrypt(Password);
+					String password = TunnelUtility.Decrypt(Password);
 					credential = new NetworkCredential(Username, password);
 				}
 
@@ -138,7 +138,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 
 				// 改行コードを削除
 				if (EnableRemoveLineBreak)
-					s = OtherSourceUtility.RemoveLineBreak(s);
+					s = TunnelUtility.RemoveLineBreak(s);
 
 				// HTMLタグを削除
 				if (EnableRemoveHtmlTag)
@@ -207,7 +207,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		#endregion
 	}
 
-	public class OtherSourceFeedEditContext : OtherSourceEditContextBase
+	public class TunnelFeedEditContext : TunnelEditContextBase
 	{
 		private const String FormatMessage = @"${feed_title} - フィードのタイトル
 ${feed_link} - フィードのリンク
@@ -219,11 +219,11 @@ ${description} - 記事の説明
 ${publish_date} - 記事の公開された日時";
 
 		private Boolean _urlChanged = false;
-		public new OtherSourceFeedItem Item { get { return base.Item as OtherSourceFeedItem; } set { base.Item = value; } }
+		public new TunnelFeedItem Item { get { return base.Item as TunnelFeedItem; } set { base.Item = value; } }
 
 		protected override void OnConfigurationChanged(IConfiguration config, System.Reflection.MemberInfo memberInfo, object value)
 		{
-			if (config is OtherSourceFeedItem)
+			if (config is TunnelFeedItem)
 			{
 				if (memberInfo.Name == "Url")
 					_urlChanged = true;
@@ -255,8 +255,8 @@ ${publish_date} - 記事の公開された日時";
 		[Description("BASIC 認証に使用するパスワードを設定します")]
 		public void Password(String s)
 		{
-			Item.Password = OtherSourceUtility.Encrypt(s);
-			Console.NotifyMessage(String.Format("Password = {0}", OtherSourceUtility.Decrypt(Item.Password)));
+			Item.Password = TunnelUtility.Encrypt(s);
+			Console.NotifyMessage(String.Format("Password = {0}", TunnelUtility.Decrypt(Item.Password)));
 		}
 
 		protected override void OnPreSaveConfig()

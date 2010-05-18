@@ -11,9 +11,9 @@ using Misuzilla.Net.Irc;
 using Misuzilla.Applications.TwitterIrcGateway;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 {
-	public class OtherSourceTimelogItem : OtherSourceTimerItemBase, IMessageReceivable
+	public class TunnelTimelogItem : TunnelTimerItemBase, IMessageReceivable
 	{
 		[Browsable(false)]
 		public String Username { get; set; }
@@ -37,9 +37,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		private DateTime _since = DateTime.MinValue;
 
 		internal override string SourceName { get { return "Timelog"; } }
-		internal override Type ContextType { get { return typeof(OtherSourceTimelogEditContext); } }
+		internal override Type ContextType { get { return typeof(TunnelTimelogEditContext); } }
 
-		public OtherSourceTimelogItem()
+		public TunnelTimelogItem()
 		{
 			Interval = 60 * 10;
 			Username = String.Empty;
@@ -49,12 +49,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			Api = new Timelog.Api();
 		}
 
-		public override void Initialize(OtherSourceAddIn addIn)
+		public override void Initialize(TunnelAddIn addIn)
 		{
 			base.Initialize(addIn);
 
 			Api.Username = Username;
-			Api.Password = OtherSourceUtility.Decrypt(Password);
+			Api.Password = TunnelUtility.Decrypt(Password);
 
 			_typableMapFactory = new TypableMapGenericMemoryRepositoryFactory<Timelog.Entry>();
 			_typableMapCommands = new TypableMapGenericCommandProcessor<Timelog.Entry>(_typableMapFactory, AddIn.CurrentSession, AddIn.CurrentSession.Config.TypableMapKeySize, this);
@@ -118,7 +118,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		{
 			if (IsValid())
 			{
-				if (AddIn.CurrentSession.Config.EnableTypableMap)
+				if (AddIn.EnableTypableMap)
 				{
 					if (_typableMapCommands.Process(e.ReceivedMessage))
 					{
@@ -135,9 +135,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		#endregion
 	}
 
-	public class OtherSourceTimelogEditContext : OtherSourceEditContextBase
+	public class TunnelTimelogEditContext : TunnelEditContextBase
 	{
-		public new OtherSourceTimelogItem Item { get { return base.Item as OtherSourceTimelogItem; } set { base.Item = value; } }
+		public new TunnelTimelogItem Item { get { return base.Item as TunnelTimelogItem; } set { base.Item = value; } }
 
 		[Description("メモの取得を試みます")]
 		public void Test()
@@ -158,9 +158,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		[Description("パスワードを設定します")]
 		public void Password(String s)
 		{
-			Item.Password = OtherSourceUtility.Encrypt(s);
+			Item.Password = TunnelUtility.Encrypt(s);
 			Item.Api.Password = s;
-			Console.NotifyMessage(String.Format("Password = {0}", OtherSourceUtility.Decrypt(Item.Password)));
+			Console.NotifyMessage(String.Format("Password = {0}", TunnelUtility.Decrypt(Item.Password)));
 		}
 
 		protected override void OnPreSaveConfig()
@@ -233,7 +233,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 					return true;
 				}
 
-				var item = processor.State as OtherSourceTimelogItem;				
+				var item = processor.State as TunnelTimelogItem;				
 
 				// エコーバック
 				String replyMsg = String.Format("@{0} {1}", value.Author.Id, args);

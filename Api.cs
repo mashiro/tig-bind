@@ -8,7 +8,7 @@ using System.Xml.Serialization;
 using System.Net;
 using System.IO;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 {
 	public abstract class ApiBase
 	{
