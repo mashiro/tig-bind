@@ -55,7 +55,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			Interval = 60 * 60;
 			Url = String.Empty;
 			ContentFormat = "${title} ${link}";
-			SenderNick = "$" + SourceName;
+			SenderNick = SourceName;
 			ChannelName = "#" + SourceName;
 			EnableRemoveLineBreak = false;
 			EnableRemoveHtmlTag = false;
@@ -230,6 +230,7 @@ ${publish_date} - 記事の公開された日時";
 		[Description("フィードの取得を試みます")]
 		public void Test()
 		{
+			CreateGroup(Item.ChannelName);
 			Item.LastPublishDate = DateTime.MinValue;
 			Item.Force();
 			Console.NotifyMessage("フィードの取得を試みます");

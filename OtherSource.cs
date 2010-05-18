@@ -98,6 +98,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 
 		private static readonly Random _random = new Random();
 		private Timer _timer = null;
+		private Object _timerSync = new object();
 
 		public OtherSourceTimerItemBase()
 		{
@@ -141,7 +142,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			{
 				Int32 intervalMillSec = Interval * 1000;
 				Int32 randomDueTime = _random.Next(0, 3000);
-				_timer.Change(intervalMillSec + randomDueTime, intervalMillSec);
+				_timer.Change(randomDueTime, intervalMillSec);
 			}
 		}
 
@@ -170,7 +171,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		/// </summary>
 		private void OnTimerCallbackInternal(Object state)
 		{
-			if (_timer != null && Monitor.TryEnter(_timer))
+			if (Monitor.TryEnter(_timerSync))
 			{
 				try
 				{
@@ -178,7 +179,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 				}
 				finally
 				{
-					Monitor.Exit(_timer);
+					Monitor.Exit(_timerSync);
 				}
 			}
 		}
@@ -493,35 +494,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			}
 		}
 
-
-
-		/// <summary>
-		/// 指定したリストのステータスを取得します。
-		/// </summary>
-		public Statuses GetListsStatuses(String userId, String listId, Int64 sinceId, Int32 count)
-		{
-			String url = String.Format("/{0}/lists/{1}/statuses.xml?since_id={2}&per_page={3}", userId, listId, sinceId, count);
-			String responseBody = CurrentSession.TwitterService.GET(url);
-			
-			Statuses statuses;
-			if (NilClasses.CanDeserialize(responseBody))
-			{
-				statuses = new Statuses();
-				statuses.Status = new Status[0];
-			}
-			else
-			{
-				statuses = Statuses.Serializer.Deserialize(new StringReader(responseBody)) as Statuses;
-				if (statuses == null || statuses.Status == null)
-				{
-					statuses = new Statuses();
-					statuses.Status = new Status[0];
-				}
-			}
-
-			return statuses;
-		}
-
 		/// <summary>
 		/// 設定を保存します。
 		/// </summary>
@@ -536,15 +508,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 				CurrentSession.AddInManager.SaveConfig(Config);
 				_lastSaveTime = now;
 			}
-		}
-
-		/// <summary>
-		/// ステータスを Session に処理をさせる。
-		/// </summary>
-		internal void ProcessTimelineStatus(Status status)
-		{
-			Boolean dummy = false;
-			CurrentSession.ProcessTimelineStatus(status, ref dummy);
 		}
 
 		/// <summary>

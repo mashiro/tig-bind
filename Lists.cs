@@ -53,6 +53,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			return String.Format("{0}/{1} ({2})", UserId, ListId, Interval);
 		}
 
+		internal void Reset()
+		{
+			_isFirstTime = true;
+			_sinceId = 1;
+		}
+
 		/// <summary>
 		/// タイマーのコールバック処理
 		/// </summary>
@@ -60,7 +66,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		{
 			try
 			{
-				Statuses statuses = AddIn.GetListsStatuses(UserId, ListId, _sinceId, FetchCount);
+				Statuses statuses = GetListsStatuses(UserId, ListId, _sinceId, FetchCount);
 				Array.Reverse(statuses.Status);
 
 				foreach (Status status in statuses.Status)
@@ -92,7 +98,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 
 			if (Duplicate)
 			{
-				AddIn.ProcessTimelineStatus(status);
+				Boolean friendsCheckRequired = false;
+				AddIn.CurrentSession.ProcessTimelineStatus(status, ref friendsCheckRequired);
 			}
 		}
 
@@ -129,16 +136,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			return ChannelName;
 		}
 
-		public String GetSenderNick()
-		{
-			return String.Empty;
-		}
-
 		public void MessageReceived(StatusUpdateEventArgs e)
 		{
-			// チャンネル宛じゃないのはDMになってしまうので殺す。
-			if (!e.ReceivedMessage.Receiver.StartsWith("#"))
-				e.Cancel = true;
+			// そのままTwitterに流す。
 		}
 		#endregion
 	}
@@ -150,6 +150,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		[Description("リストの取得を試みます")]
 		public void Test()
 		{
+			CreateGroup(Item.ChannelName);
+			Item.Reset();
 			Item.Force();
 			Console.NotifyMessage("リストの取得を試みます");
 		}
