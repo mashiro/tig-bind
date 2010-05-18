@@ -101,6 +101,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 				Boolean friendsCheckRequired = false;
 				AddIn.CurrentSession.ProcessTimelineStatus(status, ref friendsCheckRequired);
 			}
+
+			AddIn.ClientMessageWait();
 		}
 
 		/// <summary>

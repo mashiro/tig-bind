@@ -95,6 +95,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 		{
 			String content = AddIn.ApplyTypableMap(entry.Memo, entry, _typableMapCommands.TypableMap);
 			SendMessage(ChannelName, entry.Author.Id, content, notice);
+
+			AddIn.ClientMessageWait();
 		}
 
 		#region IMessageReceivable

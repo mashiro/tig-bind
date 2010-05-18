@@ -552,5 +552,14 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 
 			return str;
 		}
+
+		/// <summary>
+		/// 一定時間待つ
+		/// </summary>
+		internal void ClientMessageWait()
+		{
+			if (CurrentSession.Config.ClientMessageWait > 0)
+				Thread.Sleep(CurrentSession.Config.ClientMessageWait);
+		}
 	}
 }

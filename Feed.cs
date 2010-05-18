@@ -122,6 +122,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.OtherSource
 			String replacedContent = ReplaceFormattedString(ContentFormat, doc, item);
 			replacedContent = AddIn.ApplyTypableMap(replacedContent, FeedItemToStatus(item));
 			SendMessage(ChannelName, replacedSender, replacedContent, false);
+
+			AddIn.ClientMessageWait();
 		}
 
 		/// <summary>
