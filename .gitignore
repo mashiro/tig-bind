@@ -1,0 +1,6 @@
+bin/
+obj/
+*.sln
+*.suo
+*.user
+/TwitterIrcGatewayCore.dll
