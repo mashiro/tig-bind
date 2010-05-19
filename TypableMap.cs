@@ -192,4 +192,43 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 			return false;
 		}
 	}
+
+	#region Command
+	public class NoticeCommand<T> : ITypableMapGenericCommand<T>
+	{
+		private String _name;
+		private Func<T, String> _func;
+
+		public string CommandName { get { return _name; } }
+
+		public NoticeCommand(String name, Func<T, String> func)
+		{
+			_name = name;
+			_func = func;
+		}
+
+		public bool Process(TypableMapGenericCommandProcessor<T> processor, PrivMsgMessage msg, T value, string args)
+		{
+			processor.Session.SendServer(new NoticeMessage
+			{
+				Receiver = msg.Receiver,
+				Content = _func(value)
+			});
+
+			return true;
+		}
+	}
+
+	public class PermalinkCommand<T> : NoticeCommand<T>
+	{
+		public PermalinkCommand(Func<T, String> func)
+			: base("u", func) { }
+	}
+
+	public class HomelinkCommand<T> : NoticeCommand<T>
+	{
+		public HomelinkCommand(Func<T, String> func)
+			: base("h", func) { }
+	}
+	#endregion
 }

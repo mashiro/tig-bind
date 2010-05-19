@@ -31,15 +31,15 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 		private Boolean _isFirstTime = true;
 		private Int64 _sinceId = 1;
 
-		internal override string SourceName { get { return "Lists"; } }
-		internal override Type ContextType { get { return typeof(TunnelListsEditContext); } }
+		public override String GetTunnelName() { return "Lists"; }
+		public override Type GetContextType() { return typeof(TunnelListsEditContext); }
 
 		public TunnelListsItem()
 		{
 			Interval = 90;
 			UserId = String.Empty;
 			ListId = String.Empty;
-			ChannelName = "#" + SourceName;
+			ChannelName = "#" + GetTunnelName();
 			FetchCount = 50;
 			Duplicate = false;
 		}

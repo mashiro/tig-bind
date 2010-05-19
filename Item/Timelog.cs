@@ -36,15 +36,15 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 		private Boolean _isFirstTime = true;
 		private DateTime _since = DateTime.MinValue;
 
-		internal override string SourceName { get { return "Timelog"; } }
-		internal override Type ContextType { get { return typeof(TunnelTimelogEditContext); } }
+		public override String GetTunnelName() { return "Timelog"; }
+		public override Type GetContextType() { return typeof(TunnelTimelogEditContext); }
 
 		public TunnelTimelogItem()
 		{
 			Interval = 60 * 10;
 			Username = String.Empty;
 			Password = String.Empty;
-			ChannelName = "#" + SourceName;
+			ChannelName = "#" + GetTunnelName();
 			FetchCount = 10;
 			Api = new Timelog.Api();
 		}
@@ -58,7 +58,15 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 
 			_typableMapFactory = new TypableMapGenericMemoryRepositoryFactory<Timelog.Entry>();
 			_typableMapCommands = new TypableMapGenericCommandProcessor<Timelog.Entry>(_typableMapFactory, AddIn.CurrentSession, AddIn.CurrentSession.Config.TypableMapKeySize, this);
+			_typableMapCommands.AddCommand(new PermalinkCommand<Timelog.Entry>(e => String.Format("http://timelog.jp/msg/?{0}", e.Id)));
+			_typableMapCommands.AddCommand(new HomelinkCommand<Timelog.Entry>(e => String.Format("http://{0}.timelog.jp", e.Author.Id)));
 			_typableMapCommands.AddCommand(new Timelog.ReCommand());
+		}
+
+		public void Reset()
+		{
+			_isFirstTime = true;
+			_since = DateTime.MinValue;
 		}
 
 		public override string ToShortString()
@@ -102,7 +110,13 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 
 		private void SendEntry(Timelog.Entry entry, Boolean notice)
 		{
-			String content = AddIn.ApplyTypableMap(entry.Memo, entry, _typableMapCommands.TypableMap);
+			// そのまんま流すといろいろ足りないので適当に整形
+			StringBuilder sb = new StringBuilder();
+			if (!String.IsNullOrEmpty(entry.ToId)) sb.AppendFormat("@{0} ", entry.ToId);
+			sb.Append(entry.Memo);
+			if (!String.IsNullOrEmpty(entry.Tag)) sb.AppendFormat(" [{0}]", entry.Tag);
+
+			String content = AddIn.ApplyTypableMap(sb.ToString(), entry, _typableMapCommands.TypableMap);
 			SendMessage(ChannelName, entry.Author.Id, content, notice);
 
 			AddIn.ClientMessageWait();

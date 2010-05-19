@@ -41,26 +41,29 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 		[XmlElement(IsNullable = true)]
 		public String Password { get; set; }
 
-		[Browsable(false)]
-		public DateTime LastPublishDate { get; set; }
-
 		private static readonly Regex _regexHtmlTag = new Regex(@"<[^>]*>");
+		private DateTime _lastPublishDate = DateTime.MinValue;
+		private Boolean _isFirstTime = true;
 
-		internal override string SourceName { get { return "Feed"; } }
-		internal override Type ContextType { get { return typeof(TunnelFeedEditContext); } }
+		public override String GetTunnelName() { return "Feed"; }
+		public override Type GetContextType() { return typeof(TunnelFeedEditContext); }
 
 		public TunnelFeedItem()
 		{
 			Interval = 60 * 60;
 			Url = String.Empty;
 			ContentFormat = "${title} ${link}";
-			SenderNick = SourceName;
-			ChannelName = "#" + SourceName;
+			SenderNick = GetTunnelName();
+			ChannelName = "#" + GetTunnelName();
 			EnableRemoveLineBreak = false;
 			EnableRemoveHtmlTag = false;
 			Username = String.Empty;
 			Password = String.Empty;
-			LastPublishDate = DateTime.MinValue;
+		}
+
+		public void Reset()
+		{
+			_lastPublishDate = DateTime.MinValue;
 		}
 
 		public override string ToShortString()
@@ -91,21 +94,23 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 
 				// フィードを取得
 				IFeedDocument doc = FeedDocument.Load(Url, credential);
-				var updates = doc.Items.Where(item => item.PublishDate > LastPublishDate).ToList();
+				var updates = doc.Items.Where(item => item.PublishDate > _lastPublishDate).ToList();
 				if (updates.Count > 0)
 				{
 					// 最終更新日時を更新
-					LastPublishDate = updates.Max(item => item.PublishDate);
-					AddIn.SaveConfig(false);
+					_lastPublishDate = updates.Max(item => item.PublishDate);
+					AddIn.SaveConfig();
 
 					// 日時で昇順にソート
 					updates.Sort((a, b) => Comparer<DateTime>.Default.Compare(a.PublishDate, b.PublishDate));
 					foreach (var item in updates)
 					{
 						// 送信
-						SendFeedItem(doc, item);
+						SendFeedItem(doc, item, _isFirstTime);
 					}
 				}
+
+				_isFirstTime = false;
 			}
 			catch (Exception ex)
 			{
@@ -116,12 +121,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 		/// <summary>
 		/// フィードのエントリを送信する。
 		/// </summary>
-		private void SendFeedItem(IFeedDocument doc, IFeedItem item)
+		private void SendFeedItem(IFeedDocument doc, IFeedItem item, Boolean notice)
 		{
 			String replacedSender = ReplaceFormattedString(SenderNick, doc, item);
 			String replacedContent = ReplaceFormattedString(ContentFormat, doc, item);
 			replacedContent = AddIn.ApplyTypableMap(replacedContent, FeedItemToStatus(item));
-			SendMessage(ChannelName, replacedSender, replacedContent, false);
+			SendMessage(ChannelName, replacedSender, replacedContent, notice);
 
 			AddIn.ClientMessageWait();
 		}
@@ -234,7 +239,7 @@ ${publish_date} - 記事の公開された日時";
 		public void Test()
 		{
 			CreateGroup(Item.ChannelName);
-			Item.LastPublishDate = DateTime.MinValue;
+			Item.Reset();
 			Item.Force();
 			Console.NotifyMessage("フィードの取得を試みます");
 		}
@@ -264,7 +269,7 @@ ${publish_date} - 記事の公開された日時";
 			base.OnPreSaveConfig();
 
 			if (_urlChanged)
-				Item.LastPublishDate = DateTime.MinValue;
+				Item.Reset();
 		}
 
 		protected override void OnPostSaveConfig()
