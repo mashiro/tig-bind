@@ -202,6 +202,17 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 	namespace Timelog
 	{
+		public class TimelogException : Exception
+		{
+			public TimelogException() { }
+			public TimelogException(string message) : base(message) { }
+			public TimelogException(string message, Exception inner) : base(message, inner) { }
+			protected TimelogException(
+			  System.Runtime.Serialization.SerializationInfo info,
+			  System.Runtime.Serialization.StreamingContext context)
+				: base(info, context) { }
+		}
+
 		public class Api : ApiBase
 		{
 			public static DateTime ParseDateTime(String str)
@@ -230,9 +241,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				String data = Post("http://api.timelog.jp/newtest.asp", options);
 #else
 				String data = Post("http://api.timelog.jp/new.asp", options);
-
 #endif
-				// 成功してもOKしか返さない
+				// 空っぽだったら失敗
+				if (!String.IsNullOrEmpty(data))
+					throw new TimelogException();
 			}
 		}
 
