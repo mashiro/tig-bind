@@ -14,7 +14,7 @@ using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 {
 	[XmlType("Feed")]
-	public class BindableFeedNode : BindableTimerNodeBase
+	public class BindFeedNode : BindTimerNodeBase
 	{
 		[Description("フィードの URL を指定します")]
 		public String Url { get; set; }
@@ -50,7 +50,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		public override String GetNodeName() { return "Feed"; }
 		public override Type GetContextType() { return typeof(BindFeedEditContext); }
 
-		public BindableFeedNode()
+		public BindFeedNode()
 		{
 			Interval = 60 * 60;
 			Url = String.Empty;
@@ -105,20 +105,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 				// フィードを取得
 				IFeedDocument doc = FeedDocument.Load(Url, credential);
-				var updates = doc.Items.Where(item => item.PublishDate > _lastPublishDate).ToList();
-				if (updates.Count > 0)
-				{
-					// 最終更新日時を更新
-					_lastPublishDate = updates.Max(item => item.PublishDate);
-					AddIn.SaveConfig();
+				var items = doc.Items
+					.Where(item => item.PublishDate > _lastPublishDate)
+					.OrderBy(item => item.PublishDate)
+					.ToList();
 
-					// 日時で昇順にソート
-					updates.Sort((a, b) => Comparer<DateTime>.Default.Compare(a.PublishDate, b.PublishDate));
-					foreach (var item in updates)
+				if (items.Count > 0)
+				{
+					foreach (var item in items)
 					{
 						// 送信
 						SendFeedItem(doc, item, _isFirstTime);
 					}
+
+					// 最終更新日時を更新
+					_lastPublishDate = items.Last().PublishDate;
 				}
 
 				_isFirstTime = false;
@@ -224,11 +225,11 @@ ${description} - 記事の説明
 ${publish_date} - 記事の公開された日時";
 
 		private Boolean _urlChanged = false;
-		public new BindableFeedNode Item { get { return base.Item as BindableFeedNode; } set { base.Item = value; } }
+		public new BindFeedNode Item { get { return base.Node as BindFeedNode; } set { base.Node = value; } }
 
 		protected override void OnConfigurationChanged(IConfiguration config, System.Reflection.MemberInfo memberInfo, object value)
 		{
-			if (config is BindableFeedNode)
+			if (config is BindFeedNode)
 			{
 				if (memberInfo.Name == "Url")
 					_urlChanged = true;

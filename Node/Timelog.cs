@@ -14,7 +14,7 @@ using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 {
 	[XmlType("Timelog")]
-	public class BindableTimelogNode : BindableTimerNodeBase
+	public class BindTimelogNode : BindTimerNodeBase
 	{
 		[Browsable(false)]
 		public String Username { get; set; }
@@ -41,28 +41,33 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		public override String GetNodeName() { return "Timelog"; }
 		public override Type GetContextType() { return typeof(BindTimelogEditContext); }
 
-		public BindableTimelogNode()
+		public BindTimelogNode()
 		{
-			Interval = 60 * 10;
+			Interval = 90;
 			Username = String.Empty;
 			Password = String.Empty;
 			ChannelName = "#" + GetNodeName();
-			FetchCount = 10;
-			Api = new Timelog.Api();
+			FetchCount = 10;			
 		}
 
 		public override void Initialize(BindAddIn addIn)
 		{
 			base.Initialize(addIn);
 
-			Api.Username = Username;
-			Api.Password = BindUtility.Decrypt(Password);
+			Api = new Timelog.Api() { Username = Username, Password = BindUtility.Decrypt(Password) };
 
 			_typableMapFactory = new TypableMapGenericMemoryRepositoryFactory<Timelog.Entry>();
 			_typableMapCommands = new TypableMapGenericCommandProcessor<Timelog.Entry>(_typableMapFactory, AddIn.CurrentSession, AddIn.CurrentSession.Config.TypableMapKeySize, this);
 			_typableMapCommands.AddCommand(new PermalinkCommand<Timelog.Entry>(e => String.Format("http://timelog.jp/msg/?{0}", e.Id)));
 			_typableMapCommands.AddCommand(new HomelinkCommand<Timelog.Entry>(e => String.Format("http://{0}.timelog.jp", e.Author.Id)));
 			_typableMapCommands.AddCommand(new Timelog.ReCommand());
+		}
+
+		public override void Uninitialize()
+		{
+			Api.Dispose();
+
+			base.Uninitialize();
 		}
 
 		public void Reset()
@@ -88,21 +93,22 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// </summary>
 		public override void OnMessageReceived(StatusUpdateEventArgs e)
 		{
-			if (IsValid())
-			{
-				if (AddIn.EnableTypableMap)
-				{
-					if (_typableMapCommands.Process(e.ReceivedMessage))
-					{
-						e.Cancel = true;
-						return;
-					}
-				}
-
-				Api.New(e.Text, null);
-			}
-
 			e.Cancel = true;
+
+			try
+			{
+				if (IsValid())
+				{
+					if (AddIn.EnableTypableMap && _typableMapCommands.Process(e.ReceivedMessage))
+						return;
+
+					Api.New(e.Text, null);
+				}
+			}
+			catch (Exception)
+			{
+				SendMessage(BindAddIn.DefaultSenderNick, "メッセージの送信に失敗しました。", true);
+			}
 		}
 
 		/// <summary>
@@ -113,14 +119,15 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			try
 			{
 				var memos = Api.GetMemos(FetchCount, _since);
-				foreach (var entry in memos.Entry.Reverse<Timelog.Entry>())
+				var entries = memos.Entry.OrderBy(e => e.Modified).ToList();
+				if (entries.Count > 0)
 				{
-					SendEntry(entry, _isFirstTime);
-				}
+					foreach (var entry in entries)
+					{
+						SendEntry(entry, _isFirstTime);
+					}
 
-				if (memos.Entry.Count > 0)
-				{
-					_since = memos.Entry.Select(e => e.Modified).Max();
+					_since = entries.Last().Modified;
 					_since = _since.AddMinutes(1); // 同じのをなんども返すのでちょっと加算
 				}
 
@@ -137,7 +144,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			// そのまんま流すといろいろ足りないので適当に整形
 			StringBuilder sb = new StringBuilder();
 			if (!String.IsNullOrEmpty(entry.ToId)) sb.AppendFormat("@{0} ", entry.ToId);
-			sb.Append(entry.Memo);
+			sb.Append(entry.Memo.Trim(new Char[] { '\r', '\n', ' ' })); // 行末の改行とかがうざいので取り除く
 			if (!String.IsNullOrEmpty(entry.Tag)) sb.AppendFormat(" [{0}]", entry.Tag);
 
 			String content = AddIn.ApplyTypableMap(sb.ToString(), entry, _typableMapCommands.TypableMap);
@@ -150,30 +157,30 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 	public class BindTimelogEditContext : BindEditContextBase
 	{
-		public new BindableTimelogNode Item { get { return base.Item as BindableTimelogNode; } set { base.Item = value; } }
+		public new BindTimelogNode Node { get { return base.Node as BindTimelogNode; } set { base.Node = value; } }
 
 		[Description("メモの取得を試みます")]
 		public void Test()
 		{
-			CreateGroup(Item.ChannelName);
-			Item.Force();
+			CreateGroup(Node.ChannelName);
+			Node.Force();
 			Console.NotifyMessage("メモの取得を試みます");
 		}
 
 		[Description("ユーザ名を設定します")]
 		public void Username(String s)
 		{
-			Item.Username = s;
-			Item.Api.Username = s;
-			Console.NotifyMessage(String.Format("Username = {0}", Item.Username));
+			Node.Username = s;
+			Node.Api.Username = s;
+			Console.NotifyMessage(String.Format("Username = {0}", Node.Username));
 		}
 
 		[Description("パスワードを設定します")]
 		public void Password(String s)
 		{
-			Item.Password = BindUtility.Encrypt(s);
-			Item.Api.Password = s;
-			Console.NotifyMessage(String.Format("Password = {0}", BindUtility.Decrypt(Item.Password)));
+			Node.Password = BindUtility.Encrypt(s);
+			Node.Api.Password = s;
+			Console.NotifyMessage(String.Format("Password = {0}", BindUtility.Decrypt(Node.Password)));
 		}
 
 		protected override void OnPreSaveConfig()
@@ -184,10 +191,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		protected override void OnPostSaveConfig()
 		{
 			// チャンネルを作成
-			CreateGroup(Item.ChannelName);
+			CreateGroup(Node.ChannelName);
 
 			// タイマーの状態を更新
-			Item.Update();
+			Node.Update();
 
 			base.OnPostSaveConfig();
 		}
@@ -195,16 +202,13 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 	namespace Timelog
 	{
-		public static class Utility
+		public class Api : ApiBase
 		{
 			public static DateTime ParseDateTime(String str)
 			{
 				return DateTime.ParseExact(str, "yyyy/MM/dd H:mm:ss", null);
 			}
-		}
 
-		public class Api : ApiBase
-		{
 			public Memos GetMemos(Int32 count, DateTime since)
 			{
 				NameValueCollection options = new NameValueCollection();
@@ -246,14 +250,14 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 					return true;
 				}
 
-				var item = processor.State as BindableTimelogNode;				
+				var node = processor.State as BindTimelogNode;				
 
 				// エコーバック
 				String replyMsg = String.Format("@{0} {1}", value.Author.Id, args);
-				session.SendChannelMessage(msg.Receiver, item.Username, replyMsg, true, false, false, false);
+				session.SendChannelMessage(msg.Receiver, node.Username, replyMsg, true, false, false, false);
 
 				// 返信
-				item.Api.New(replyMsg, value.Id);
+				node.Api.New(replyMsg, value.Id);
 
 				return true;
 			}
@@ -272,7 +276,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 			[XmlElement("modified")]
 			public String _modified;
-			public DateTime Modified { get { return Timelog.Utility.ParseDateTime(_modified); } }
+			public DateTime Modified { get { return Timelog.Api.ParseDateTime(_modified); } }
 
 			[XmlElement("author")]
 			public Author Author { get; set; }
@@ -342,7 +346,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 			[XmlElement("modified")]
 			public String _modified;
-			public DateTime Modified { get { return Timelog.Utility.ParseDateTime(_modified); } }
+			public DateTime Modified { get { return Timelog.Api.ParseDateTime(_modified); } }
 
 			[XmlElement("star")]
 			public Int32 Star { get; set; }

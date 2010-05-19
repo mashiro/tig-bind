@@ -17,18 +17,18 @@ using Misuzilla.Applications.TwitterIrcGateway.AddIns.TypableMap;
 namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
 	#region Interface
-	public interface IBindableNode
+	public interface IBindNode
 	{
 		String GetChannelName();
-		String GetNodeName();		
+		String GetNodeName();
 		Type GetContextType();
 		void OnMessageReceived(StatusUpdateEventArgs e);
 	}
 	#endregion
 
-	#region Configuration
-	[XmlType("Item")]
-	public abstract class BindableNodeBase : IConfiguration, IBindableNode
+	#region Node
+	[XmlType("Node")]
+	public abstract class BindNodeBase : IConfiguration, IBindNode
 	{
 		[Description("ノードを有効化または無効化します")]
 		public Boolean Enabled { get; set; }
@@ -37,7 +37,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		[XmlIgnore]
 		public BindAddIn AddIn { get; private set; }
 
-		public BindableNodeBase()
+		public BindNodeBase()
 		{
 			Enabled = true;
 		}
@@ -105,7 +105,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		}
 	}
 
-	public abstract class BindableTimerNodeBase : BindableNodeBase
+	public abstract class BindTimerNodeBase : BindNodeBase
 	{
 		[Description("ノードをチェックする間隔を秒単位で指定します")]
 		public Int32 Interval { get; set; }
@@ -114,7 +114,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		private Timer _timer = null;
 		private Object _timerSync = new object();
 
-		public BindableTimerNodeBase()
+		public BindTimerNodeBase()
 		{
 			Interval = 90;
 		}
@@ -219,12 +219,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		public Boolean IgnoreWatchError { get; set; }
 
 		[Browsable(false)]
-		public List<BindableNodeBase> Items { get; set; }
+		public List<BindNodeBase> Nodes { get; set; }
 
 		public BindConfiguration()
 		{
 			InitialModes = "+pni";
-			Items = new List<BindableNodeBase>();
+			Nodes = new List<BindNodeBase>();
 		}
 	}
 	#endregion
@@ -245,34 +245,34 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			}
 		}
 
-		[Description("指定したノードを強制的に更新します")]
-		public void UpdateForce(String arg)
+		[Description("指定したノードを更新します")]
+		public void Update(String arg)
 		{
-			FindAt(arg, item =>
+			FindAt(arg, node =>
 			{
-				if (item is BindableTimerNodeBase)
+				if (node is BindTimerNodeBase)
 				{
-					var timerItem = item as BindableTimerNodeBase;
-					timerItem.Force();
+					var timerNode = node as BindTimerNodeBase;
+					timerNode.Force();
 				}
 
-				Console.NotifyMessage(String.Format("ノード {0} を更新しました。", item.ToShortString()));
+				Console.NotifyMessage(String.Format("ノード {0} を更新しました。", node.ToShortString()));
 			});
 		}
 
 		[Description("存在するノードをすべて表示します")]
 		public void List()
 		{
-			if (AddIn.Config.Items.Count == 0)
+			if (AddIn.Config.Nodes.Count == 0)
 			{
 				Console.NotifyMessage("ノードは現在設定されていません。");
 				return;
 			}
 
-			for (Int32 i = 0; i < AddIn.Config.Items.Count; ++i)
+			for (Int32 i = 0; i < AddIn.Config.Nodes.Count; ++i)
 			{
-				var item = AddIn.Config.Items[i];
-				Console.NotifyMessage(String.Format("{0}: {1}", i, item.ToLongString()));
+				var node = AddIn.Config.Nodes[i];
+				Console.NotifyMessage(String.Format("{0}: {1}", i, node.ToLongString()));
 			}
 		}
 
@@ -288,26 +288,37 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			SwitchEnable(arg, false);
 		}
 
-		[Description("指定したノードを削除します")]
-		public void Remove(String arg)
+		[Description("指定したノードを入れ替えます")]
+		public void Swap(String[] args)
 		{
-			FindAt(arg, item =>
+			if (args.Length != 2)
 			{
-				item.Uninitialize();
-				AddIn.Config.Items.Remove(item);
-				AddIn.SaveConfig();
-				Console.NotifyMessage(String.Format("ノード {0} を削除しました。", item.ToShortString()));
+				Console.NotifyMessage("ノードの指定が正しくありません。");
+				return;
+			}
+
+			FindAt(args[0], (node1, index1) =>
+			{
+				FindAt(args[1], (node2, index2) =>
+				{
+					var tmp = AddIn.Config.Nodes[index1];
+					AddIn.Config.Nodes[index1] = AddIn.Config.Nodes[index2];
+					AddIn.Config.Nodes[index2] = tmp;
+
+					AddIn.SaveConfig();
+					Console.NotifyMessage(String.Format("ノード {0} と ノード {1} を入れ替えしました。", node1.ToShortString(), node2.ToShortString()));
+				});
 			});
 		}
 
 		[Description("指定したノードを編集します")]
 		public void Edit(String arg)
 		{
-			FindAt(arg, item =>
+			FindAt(arg, node =>
 			{
 				// コンテキストを作成
-				BindEditContextBase context = Console.GetContext(item.GetContextType(), CurrentServer, CurrentSession) as BindEditContextBase;
-				context.Item = item;
+				BindEditContextBase context = Console.GetContext(node.GetContextType(), CurrentServer, CurrentSession) as BindEditContextBase;
+				context.Node = node;
 				context.IsNew = false;
 				Console.PushContext(context);
 			});
@@ -326,41 +337,46 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			}
 
 			// ノードを作成
-			BindableNodeBase item = Activator.CreateInstance(tunnelType) as BindableNodeBase;
-			item.Initialize(AddIn);
+			BindNodeBase node = Activator.CreateInstance(tunnelType) as BindNodeBase;
+			node.Initialize(AddIn);
 
 			// コンテキストを作成
-			BindEditContextBase context = Console.GetContext(item.GetContextType(), CurrentServer, CurrentSession) as BindEditContextBase;
-			context.Item = item;
+			BindEditContextBase context = Console.GetContext(node.GetContextType(), CurrentServer, CurrentSession) as BindEditContextBase;
+			context.Node = node;
 			context.IsNew = true;
 			Console.PushContext(context);
 		}
 
 		private void SwitchEnable(String arg, Boolean enable)
 		{
-			FindAt(arg, item =>
+			FindAt(arg, node =>
 			{
-				item.Enabled = enable;
+				node.Enabled = enable;
 
-				if (item is BindableTimerNodeBase)
+				if (node is BindTimerNodeBase)
 				{
-					var timerItem = item as BindableTimerNodeBase;
-					timerItem.Update();
+					var timerNode = node as BindTimerNodeBase;
+					timerNode.Update();
 				}
 
 				AddIn.SaveConfig();
-				Console.NotifyMessage(String.Format("ノード {0} を{1}化しました。", item.ToShortString(), (enable ? "有効" : "無効")));
+				Console.NotifyMessage(String.Format("ノード {0} を{1}化しました。", node.ToShortString(), (enable ? "有効" : "無効")));
 			});
 		}
 
-		private void FindAt(String arg, Action<BindableNodeBase> action)
+		private void FindAt(String arg, Action<BindNodeBase> action)
+		{
+			FindAt(arg, (node, index) => action(node));
+		}
+
+		private void FindAt(String arg, Action<BindNodeBase, Int32> action)
 		{
 			Int32 index;
 			if (Int32.TryParse(arg, out index))
 			{
-				if (index < AddIn.Config.Items.Count && index > -1)
+				if (index < AddIn.Config.Nodes.Count && index > -1)
 				{
-					action(AddIn.Config.Items[index]);
+					action(AddIn.Config.Nodes[index], index);
 				}
 				else
 				{
@@ -377,10 +393,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 	public abstract class BindEditContextBase : Context
 	{
 		protected BindAddIn AddIn { get { return CurrentSession.AddInManager.GetAddIn<BindAddIn>(); } }
-		public BindableNodeBase Item { get; set; }
+		public BindNodeBase Node { get; set; }
 		public Boolean IsNew { get; set; }
-		public override IConfiguration[] Configurations { get { return new IConfiguration[] { Item }; } }
-		public override string ContextName { get { return (IsNew ? "New" : "Edit") + Item.GetNodeName(); } }
+		public override IConfiguration[] Configurations { get { return new IConfiguration[] { Node }; } }
+		public override string ContextName { get { return (IsNew ? "New" : "Edit") + Node.GetNodeName(); } }
 
 		[Description("ノードの設定を保存してコンテキストを終了します")]
 		public void Save()
@@ -388,7 +404,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			OnPreSaveConfig();
 
 			// 状態を保存
-			if (IsNew) AddIn.Config.Items.Add(Item);
+			if (IsNew) AddIn.Config.Nodes.Add(Node);
 			AddIn.SaveConfig();
 
 			OnPostSaveConfig();
@@ -471,9 +487,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 
 			// 設定を読み込みと関連付け
 			Config = CurrentSession.AddInManager.GetConfig<BindConfiguration>();
-			foreach (var item in Config.Items)
+			foreach (var node in Config.Nodes)
 			{
-				item.Initialize(this);
+				node.Initialize(this);
 			}
 
 			CurrentSession.PreMessageReceived += new EventHandler<MessageReceivedEventArgs>(CurrentSession_PreMessageReceived);
@@ -493,9 +509,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		{
 			SaveConfig();
 
-			foreach (var item in Config.Items)
+			foreach (var node in Config.Nodes)
 			{
-				item.Uninitialize();
+				node.Uninitialize();
 			}
 
 			base.Uninitialize();
@@ -507,13 +523,13 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		private void LoadBindableNodes()
 		{
 			Assembly asm = Assembly.GetExecutingAssembly();
-			Type nodeType = typeof(IBindableNode);
+			Type nodeType = typeof(IBindNode);
 			foreach (Type type in asm.GetTypes())
 			{
 				if (nodeType.IsAssignableFrom(type) && !type.IsAbstract && type.IsClass)
 				{
 					// いちいちインスタンス化してるのがちょっとあれ
-					IBindableNode node = Activator.CreateInstance(type) as IBindableNode;
+					IBindNode node = Activator.CreateInstance(type) as IBindNode;
 					BindableNodes[node.GetNodeName()] = type;
 				}
 			}
@@ -532,16 +548,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			String receiver = message.Receiver;
 			if (!String.IsNullOrEmpty(receiver))
 			{
-				foreach (var item in Config.Items)
+				foreach (var node in Config.Nodes)
 				{
-					var bindable = item as IBindableNode;
-					if (bindable != null)
+					var target = node.GetChannelName();
+					if (String.Compare(target, receiver, true) == 0)
 					{
-						var target = bindable.GetChannelName();
-						if (String.Compare(target, receiver, true) == 0)
-						{
-							bindable.OnMessageReceived(eventArgs);
-						}
+						node.OnMessageReceived(eventArgs);
 					}
 				}
 			}

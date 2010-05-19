@@ -12,7 +12,7 @@ using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 {
 	[XmlType("Lists")]
-	public class BindableListsNode : BindableTimerNodeBase
+	public class BindListsNode : BindTimerNodeBase
 	{
 		[Description("ユーザ名、またはユーザ ID を指定します")]
 		public String UserId { get; set; }
@@ -36,7 +36,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		public override String GetNodeName() { return "Lists"; }
 		public override Type GetContextType() { return typeof(BindListsEditContext); }
 
-		public BindableListsNode()
+		public BindListsNode()
 		{
 			Interval = 90;
 			UserId = String.Empty;
@@ -79,16 +79,17 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		{
 			try
 			{
-				Statuses statuses = GetListsStatuses(UserId, ListId, _sinceId, FetchCount);
-				Array.Reverse(statuses.Status);
-
-				foreach (Status status in statuses.Status)
+				Statuses tmp = GetListsStatuses(UserId, ListId, _sinceId, FetchCount);
+				var statuses = tmp.Status.OrderBy(s => s.CreatedAt).ToList();
+				if (statuses.Count > 0)
 				{
-					SendStatus(status, _isFirstTime);
-				}
+					foreach (var status in statuses)
+					{
+						SendStatus(status, _isFirstTime);
+					}
 
-				if (statuses.Status != null && statuses.Status.Length > 0)
-					_sinceId = statuses.Status.Select(s => s.Id).Max();
+					_sinceId = statuses.Last().Id;
+				}
 
 				_isFirstTime = false;
 			}
@@ -148,14 +149,14 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 	public class BindListsEditContext : BindEditContextBase
 	{
-		public new BindableListsNode Item { get { return base.Item as BindableListsNode; } set { base.Item = value; } }
+		public new BindListsNode Node { get { return base.Node as BindListsNode; } set { base.Node = value; } }
 
 		[Description("リストの取得を試みます")]
 		public void Test()
 		{
-			CreateGroup(Item.ChannelName);
-			Item.Reset();
-			Item.Force();
+			CreateGroup(Node.ChannelName);
+			Node.Reset();
+			Node.Force();
 			Console.NotifyMessage("リストの取得を試みます");
 		}
 
@@ -167,10 +168,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		protected override void OnPostSaveConfig()
 		{
 			// チャンネルを作成
-			CreateGroup(Item.ChannelName);
+			CreateGroup(Node.ChannelName);
 
 			// タイマーの状態を更新
-			Item.Update();
+			Node.Update();
 
 			base.OnPostSaveConfig();
 		}
