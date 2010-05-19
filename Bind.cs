@@ -256,7 +256,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 					timerItem.Force();
 				}
 
-				Console.NotifyMessage(String.Format("ノード {0} を更新しました。", item));
+				Console.NotifyMessage(String.Format("ノード {0} を更新しました。", item.ToShortString()));
 			});
 		}
 
@@ -349,7 +349,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 				}
 
 				AddIn.SaveConfig();
-				Console.NotifyMessage(String.Format("ノード {0} を{1}化しました。", item, (enable ? "有効" : "無効")));
+				Console.NotifyMessage(String.Format("ノード {0} を{1}化しました。", item.ToShortString(), (enable ? "有効" : "無効")));
 			});
 		}
 
@@ -555,6 +555,17 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		internal void SaveConfig()
 		{
 			CurrentSession.AddInManager.SaveConfig(Config);
+		}
+
+		/// <summary>
+		/// 時間を頭につける
+		/// </summary>
+		public String ApplyDateTime(String str, DateTime dateTime, Boolean isFirstTime)
+		{
+			if (isFirstTime)
+				return String.Format("{0} {1}", dateTime.ToString("HH:mm"), str);
+			else
+				return str;
 		}
 
 		/// <summary>

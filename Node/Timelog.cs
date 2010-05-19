@@ -132,7 +132,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			}
 		}
 
-		private void SendEntry(Timelog.Entry entry, Boolean notice)
+		private void SendEntry(Timelog.Entry entry, Boolean isFirstTime)
 		{
 			// そのまんま流すといろいろ足りないので適当に整形
 			StringBuilder sb = new StringBuilder();
@@ -141,7 +141,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			if (!String.IsNullOrEmpty(entry.Tag)) sb.AppendFormat(" [{0}]", entry.Tag);
 
 			String content = AddIn.ApplyTypableMap(sb.ToString(), entry, _typableMapCommands.TypableMap);
-			SendMessage(entry.Author.Id, content, notice);
+			content = AddIn.ApplyDateTime(content, entry.Modified, isFirstTime);
+			SendMessage(entry.Author.Id, content, isFirstTime);
 
 			AddIn.SleepClientMessageWait();
 		}

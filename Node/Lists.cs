@@ -101,10 +101,13 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// ステータスを送信します。
 		/// </summary>
-		private void SendStatus(Status status, Boolean notice)
+		private void SendStatus(Status status, Boolean isFirstTime)
 		{
-			String content = AddIn.ApplyTypableMap(status.Text, status);
-			SendMessage(status.User.ScreenName, content, notice);
+			StringBuilder sb = new StringBuilder();
+			sb.Append(AddIn.ApplyTypableMap(status.Text, status));
+
+			String content = AddIn.ApplyDateTime(sb.ToString(), status.CreatedAt, isFirstTime);
+			SendMessage(status.User.ScreenName, content, isFirstTime);
 
 			if (Duplicate)
 			{

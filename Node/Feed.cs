@@ -132,12 +132,14 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// フィードのエントリを送信する。
 		/// </summary>
-		private void SendFeedItem(IFeedDocument doc, IFeedItem item, Boolean notice)
+		private void SendFeedItem(IFeedDocument doc, IFeedItem item, Boolean isFirstTime)
 		{
 			String replacedSender = ReplaceFormattedString(SenderNick, doc, item);
 			String replacedContent = ReplaceFormattedString(ContentFormat, doc, item);
 			replacedContent = AddIn.ApplyTypableMap(replacedContent, FeedItemToStatus(item));
-			SendMessage(replacedSender, replacedContent, notice);
+
+			replacedContent = AddIn.ApplyDateTime(replacedContent, item.PublishDate, isFirstTime);
+			SendMessage(replacedSender, replacedContent, isFirstTime);
 
 			AddIn.SleepClientMessageWait();
 		}
