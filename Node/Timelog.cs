@@ -34,7 +34,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		private ITypableMapGenericRepositoryFactory<Timelog.Entry> _typableMapFactory;
 		private TypableMapGenericCommandProcessor<Timelog.Entry> _typableMapCommands;
-		private Boolean _isFirstTime = true;
 		private DateTime _since = DateTime.MinValue;
 
 		public override String GetChannelName() { return ChannelName; }
@@ -55,7 +54,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			base.Initialize(addIn);
 
 			Api = new Timelog.Api() { Username = Username, Password = BindUtility.Decrypt(Password) };
-
 			_typableMapFactory = new TypableMapGenericMemoryRepositoryFactory<Timelog.Entry>();
 			_typableMapCommands = new TypableMapGenericCommandProcessor<Timelog.Entry>(_typableMapFactory, AddIn.CurrentSession, AddIn.CurrentSession.Config.TypableMapKeySize, this);
 			_typableMapCommands.AddCommand(new PermalinkCommand<Timelog.Entry>(e => String.Format("http://timelog.jp/msg/?{0}", e.Id)));
@@ -63,16 +61,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			_typableMapCommands.AddCommand(new Timelog.ReCommand());
 		}
 
-		public override void Uninitialize()
-		{
-			Api.Dispose();
-
-			base.Uninitialize();
-		}
-
 		public void Reset()
 		{
-			_isFirstTime = true;
 			_since = DateTime.MinValue;
 		}
 
@@ -114,7 +104,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// タイマーのコールバック処理
 		/// </summary>
-		protected override void OnTimerCallback()
+		protected override void OnTimerCallback(Boolean isFirstTime)
 		{
 			try
 			{
@@ -124,14 +114,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				{
 					foreach (var entry in entries)
 					{
-						SendEntry(entry, _isFirstTime);
+						Send(entry, isFirstTime);
 					}
 
 					_since = entries.Last().Modified;
 					_since = _since.AddMinutes(1); // 同じのをなんども返すのでちょっと加算
 				}
-
-				_isFirstTime = false;
 			}
 			catch (Exception ex)
 			{
@@ -139,7 +127,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			}
 		}
 
-		private void SendEntry(Timelog.Entry entry, Boolean isFirstTime)
+		private void Send(Timelog.Entry entry, Boolean isFirstTime)
 		{
 			// そのまんま流すといろいろ足りないので適当に整形
 			StringBuilder sb = new StringBuilder();
@@ -163,6 +151,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		public void Test()
 		{
 			CreateGroup(Node.ChannelName);
+			Node.Reset();
 			Node.Force();
 			Console.NotifyMessage("メモの取得を試みます");
 		}
@@ -170,16 +159,22 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		[Description("ユーザ名を設定します")]
 		public void Username(String s)
 		{
-			Node.Username = s;
-			Node.Api.Username = s;
+			if (!String.IsNullOrEmpty(s))
+			{
+				Node.Username = s;
+				Node.Api.Username = s;
+			}
 			Console.NotifyMessage(String.Format("Username = {0}", Node.Username));
 		}
 
 		[Description("パスワードを設定します")]
 		public void Password(String s)
 		{
-			Node.Password = BindUtility.Encrypt(s);
-			Node.Api.Password = s;
+			if (!String.IsNullOrEmpty(s))
+			{
+				Node.Password = BindUtility.Encrypt(s);
+				Node.Api.Password = s;
+			}
 			Console.NotifyMessage(String.Format("Password = {0}", BindUtility.Decrypt(Node.Password)));
 		}
 
@@ -247,34 +242,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 					throw new TimelogException();
 			}
 		}
-
-		#region Command
-		public class ReCommand : ITypableMapGenericCommand<Timelog.Entry>
-		{
-			public string CommandName { get { return "re"; } }
-
-			public bool Process(TypableMapGenericCommandProcessor<Entry> processor, PrivMsgMessage msg, Entry value, string args)
-			{
-				var session = processor.Session;
-				if (args.Trim() == String.Empty)
-				{
-					session.SendChannelMessage(msg.Receiver, Server.ServerNick, "返信に空メッセージの送信はできません。", true, false, false, true);
-					return true;
-				}
-
-				var node = processor.State as BindTimelogNode;				
-
-				// エコーバック
-				String replyMsg = String.Format("@{0} {1}", value.Author.Id, args);
-				session.SendChannelMessage(msg.Receiver, node.Username, replyMsg, true, false, false, false);
-
-				// 返信
-				node.Api.New(replyMsg, value.Id);
-
-				return true;
-			}
-		}
-		#endregion
 
 		#region Model
 		[XmlRoot("memos")]
@@ -374,6 +341,34 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 			[XmlAttribute("href")]
 			public String HRef { get; set; }
+		}
+		#endregion
+
+		#region Command
+		public class ReCommand : ITypableMapGenericCommand<Timelog.Entry>
+		{
+			public string CommandName { get { return "re"; } }
+
+			public bool Process(TypableMapGenericCommandProcessor<Entry> processor, PrivMsgMessage msg, Entry value, string args)
+			{
+				var session = processor.Session;
+				if (args.Trim() == String.Empty)
+				{
+					session.SendChannelMessage(msg.Receiver, Server.ServerNick, "返信に空メッセージの送信はできません。", true, false, false, true);
+					return true;
+				}
+
+				var node = processor.State as BindTimelogNode;
+
+				// エコーバック
+				String replyMsg = String.Format("@{0} {1}", value.Author.Id, args);
+				session.SendChannelMessage(msg.Receiver, node.Username, replyMsg, true, false, false, false);
+
+				// 返信
+				node.Api.New(replyMsg, value.Id);
+
+				return true;
+			}
 		}
 		#endregion
 	}

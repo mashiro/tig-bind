@@ -29,7 +29,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		[Description("ステータスを複製するかを有効化または無効化します")]
 		public Boolean Duplicate { get; set; }
 
-		private Boolean _isFirstTime = true;
 		private Int64 _sinceId = 1;
 
 		public override String GetChannelName() { return ChannelName; }
@@ -51,9 +50,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			return String.Format("{0}/{1} ({2})", UserId, ListId, Interval);
 		}
 
-		internal void Reset()
+		public void Reset()
 		{
-			_isFirstTime = true;
 			_sinceId = 1;
 		}
 
@@ -75,7 +73,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// タイマーのコールバック処理
 		/// </summary>
-		protected override void OnTimerCallback()
+		protected override void OnTimerCallback(Boolean isFirstTime)
 		{
 			try
 			{
@@ -85,13 +83,11 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				{
 					foreach (var status in statuses)
 					{
-						SendStatus(status, _isFirstTime);
+						Send(status, isFirstTime);
 					}
 
 					_sinceId = statuses.Last().Id;
 				}
-
-				_isFirstTime = false;
 			}
 			catch (Exception ex)
 			{
@@ -102,7 +98,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// ステータスを送信します。
 		/// </summary>
-		private void SendStatus(Status status, Boolean isFirstTime)
+		private void Send(Status status, Boolean isFirstTime)
 		{
 			StringBuilder sb = new StringBuilder();
 			sb.Append(AddIn.ApplyTypableMap(status.Text, status));

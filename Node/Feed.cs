@@ -44,7 +44,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		private static readonly Regex _regexHtmlTag = new Regex(@"<[^>]*>");
 		private DateTime _lastPublishDate = DateTime.MinValue;
-		private Boolean _isFirstTime = true;
 
 		public override String GetChannelName() { return ChannelName; }
 		public override String GetNodeName() { return "Feed"; }
@@ -91,7 +90,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// タイマーのコールバック処理
 		/// </summary>
-		protected override void OnTimerCallback()
+		protected override void OnTimerCallback(Boolean isFirstTime)
 		{
 			try
 			{
@@ -115,14 +114,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 					foreach (var item in items)
 					{
 						// 送信
-						SendFeedItem(doc, item, _isFirstTime);
+						Send(doc, item, isFirstTime);
 					}
 
 					// 最終更新日時を更新
 					_lastPublishDate = items.Last().PublishDate;
 				}
-
-				_isFirstTime = false;
 			}
 			catch (Exception ex)
 			{
@@ -133,12 +130,11 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// フィードのエントリを送信する。
 		/// </summary>
-		private void SendFeedItem(IFeedDocument doc, IFeedItem item, Boolean isFirstTime)
+		private void Send(IFeedDocument doc, IFeedItem item, Boolean isFirstTime)
 		{
 			String replacedSender = ReplaceFormattedString(SenderNick, doc, item);
 			String replacedContent = ReplaceFormattedString(ContentFormat, doc, item);
 			replacedContent = AddIn.ApplyTypableMap(replacedContent, FeedItemToStatus(item));
-
 			replacedContent = AddIn.ApplyDateTime(replacedContent, item.PublishDate, isFirstTime);
 			SendMessage(replacedSender, replacedContent, isFirstTime);
 
@@ -254,14 +250,16 @@ ${publish_date} - 記事の公開された日時";
 		[Description("BASIC 認証に使用するユーザ名を設定します")]
 		public void Username(String s)
 		{
-			Item.Username = s;
+			if (!String.IsNullOrEmpty(s))
+				Item.Username = s;
 			Console.NotifyMessage(String.Format("Username = {0}", Item.Username));
 		}
 
 		[Description("BASIC 認証に使用するパスワードを設定します")]
 		public void Password(String s)
 		{
-			Item.Password = BindUtility.Encrypt(s);
+			if (!String.IsNullOrEmpty(s))
+				Item.Password = BindUtility.Encrypt(s);
 			Console.NotifyMessage(String.Format("Password = {0}", BindUtility.Decrypt(Item.Password)));
 		}
 

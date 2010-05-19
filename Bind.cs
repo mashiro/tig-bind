@@ -113,6 +113,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		private static readonly Random _random = new Random();
 		private Timer _timer = null;
 		private Object _timerSync = new object();
+		private Boolean _isFirstTime = true;
 
 		public BindTimerNodeBase()
 		{
@@ -194,10 +195,11 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			{
 				try
 				{
-					OnTimerCallback();
+					OnTimerCallback(_isFirstTime);
 				}
 				finally
 				{
+					_isFirstTime = false;
 					Monitor.Exit(_timerSync);
 				}
 			}
@@ -206,7 +208,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		/// <summary>
 		/// タイマーのコールバック処理
 		/// </summary>
-		protected abstract void OnTimerCallback();
+		protected abstract void OnTimerCallback(Boolean isFirstTime);
 		#endregion
 	}
 

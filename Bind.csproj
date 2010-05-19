@@ -47,6 +47,7 @@
     <Compile Include="Node\Feed.cs" />
     <Compile Include="Node\Lists.cs" />
     <Compile Include="Bind.cs" />
+    <Compile Include="Node\Wassr.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Node\Timelog.cs" />
     <Compile Include="TypableMap.cs" />
