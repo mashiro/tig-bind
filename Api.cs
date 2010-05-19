@@ -8,11 +8,15 @@ using System.Xml.Serialization;
 using System.Net;
 using System.IO;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
+	/// <summary>
+	/// BASIC 認証でいろいろするための簡単な枠組み
+	/// </summary>
 	public abstract class ApiBase
 	{
 		private static XmlSerializerFactory _serializerFactory = new XmlSerializerFactory();
+
 		public String Username { get; set; }
 		public String Password { get; set; }
 

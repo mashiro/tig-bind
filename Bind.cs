@@ -14,42 +14,35 @@ using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns.Console;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns.TypableMap;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
 	#region Interface
-	public interface ITunnel
-	{
-		String GetTunnelName();
-		Type GetContextType();
-	}
-
-	public interface IMessageReceivable
+	public interface IBindableNode
 	{
 		String GetChannelName();
-		void MessageReceived(StatusUpdateEventArgs e);
+		String GetNodeName();		
+		Type GetContextType();
+		void OnMessageReceived(StatusUpdateEventArgs e);
 	}
 	#endregion
 
 	#region Configuration
 	[XmlType("Item")]
-	public abstract class TunnelItemBase : IConfiguration, ITunnel
+	public abstract class BindableNodeBase : IConfiguration, IBindableNode
 	{
-		[Description("トンネルを有効化または無効化します")]
+		[Description("ノードを有効化または無効化します")]
 		public Boolean Enabled { get; set; }
 
 		[Browsable(false)]
 		[XmlIgnore]
-		public TunnelAddIn AddIn { get; private set; }
+		public BindAddIn AddIn { get; private set; }
 
-		public abstract String GetTunnelName();
-		public abstract Type GetContextType();
-
-		public TunnelItemBase()
+		public BindableNodeBase()
 		{
 			Enabled = true;
 		}
 
-		public virtual void Initialize(TunnelAddIn addIn)
+		public virtual void Initialize(BindAddIn addIn)
 		{
 			AddIn = addIn;
 		}
@@ -58,29 +51,35 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 		{
 		}
 
-		public override string ToString()
+		public abstract String GetChannelName();
+		public abstract String GetNodeName();
+		public abstract Type GetContextType();
+		public abstract void OnMessageReceived(StatusUpdateEventArgs e);
+
+		public string ToShortString()
 		{
-			return ToShortString();
+			// Feed - http://example.com (3600)
+			// Lists - UserId/ListId (60)
+			return String.Format("{0} - {1}", GetNodeName(), ToString());
 		}
 
-		public virtual string ToShortString()
-		{
-			return String.Empty;
-		}
-
-		public virtual string ToLongString()
+		public string ToLongString()
 		{
 			// [*] Feed - http://example.com (3600)
 			// [ ] Lists - UserId/ListId (60)
-			return String.Format("[{0}] {1} - {2}", Enabled ? "*" : " ", GetTunnelName(), ToShortString());
+			return String.Format("[{0}] {1}", Enabled ? "*" : " ", ToShortString());
 		}
 
-		protected void SendMessage(String receiver, String sender, String content, Boolean notice)
+		/// <summary>
+		/// バインドされたチャンネルにメッセージを送信します。
+		/// </summary>
+		protected void SendMessage(String sender, String content, Boolean notice)
 		{
+			var receiver = GetChannelName();
 			if (String.IsNullOrEmpty(receiver))
 				receiver = AddIn.CurrentSession.CurrentNick;
 
-			foreach (String line in TunnelUtility.SplitLineBreak(content))
+			foreach (String line in BindUtility.SplitLineBreak(content))
 			{
 				IRCMessage message = null;
 				if (notice)
@@ -89,35 +88,38 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 					message = new PrivMsgMessage(receiver, line);
 
 				message.SenderNick = sender;
-				message.SenderHost = String.Format("{0}@{1}", GetTunnelName().ToLowerInvariant(), Server.ServerName);
+				message.SenderHost = String.Format("{0}@{1}", GetNodeName().ToLowerInvariant(), Server.ServerName);
 				AddIn.CurrentSession.Send(message);
 			}
 		}
 
-		protected void SendException(String receiver, Exception exception)
+		/// <summary>
+		/// バインドされたチャンネルに例外メッセージを送信します。
+		/// </summary>
+		protected void SendException(Exception exception)
 		{
 			if (!AddIn.Config.IgnoreWatchError)
 			{
-				SendMessage(receiver, TunnelAddIn.DefaultSenderNick, TunnelUtility.RemoveLineBreak(exception.Message), true);
+				SendMessage(BindAddIn.DefaultSenderNick, BindUtility.RemoveLineBreak(exception.Message), true);
 			}
 		}
 	}
 
-	public abstract class TunnelTimerItemBase : TunnelItemBase
+	public abstract class BindableTimerNodeBase : BindableNodeBase
 	{
-		[Description("トンネルをチェックする間隔を秒単位で指定します")]
+		[Description("ノードをチェックする間隔を秒単位で指定します")]
 		public Int32 Interval { get; set; }
 
 		private static readonly Random _random = new Random();
 		private Timer _timer = null;
 		private Object _timerSync = new object();
 
-		public TunnelTimerItemBase()
+		public BindableTimerNodeBase()
 		{
 			Interval = 90;
 		}
 
-		public override void Initialize(TunnelAddIn addIn)
+		public override void Initialize(BindAddIn addIn)
 		{
 			base.Initialize(addIn);
 			Update();
@@ -208,7 +210,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 		#endregion
 	}
 
-	public class TunnelConfiguration : IConfiguration
+	public class BindConfiguration : IConfiguration
 	{
 		[Description("チャンネル作成時のモードを指定します")]
 		public String InitialModes { get; set; }
@@ -217,53 +219,53 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 		public Boolean IgnoreWatchError { get; set; }
 
 		[Browsable(false)]
-		public List<TunnelItemBase> Items { get; set; }
+		public List<BindableNodeBase> Items { get; set; }
 
-		public TunnelConfiguration()
+		public BindConfiguration()
 		{
 			InitialModes = "+pni";
-			Items = new List<TunnelItemBase>();
+			Items = new List<BindableNodeBase>();
 		}
 	}
 	#endregion
 
 	#region Context
-	[Description("トンネルの設定を行うコンテキストに切り替えます")]
-	public class TunnelContext : Context
+	[Description("バインドするノードの設定を行うコンテキストに切り替えます")]
+	public class BindContext : Context
 	{
-		private TunnelAddIn AddIn { get { return CurrentSession.AddInManager.GetAddIn<TunnelAddIn>(); } }
+		private BindAddIn AddIn { get { return CurrentSession.AddInManager.GetAddIn<BindAddIn>(); } }
 
 		public override IConfiguration[] Configurations { get { return new IConfiguration[] { AddIn.Config }; } }
 		protected override void OnConfigurationChanged(IConfiguration config, System.Reflection.MemberInfo memberInfo, object value)
 		{
-			if (config is TunnelConfiguration)
+			if (config is BindConfiguration)
 			{
-				AddIn.Config = config as TunnelConfiguration;
+				AddIn.Config = config as BindConfiguration;
 				AddIn.SaveConfig();
 			}
 		}
 
-		[Description("指定したトンネルを強制的に更新します")]
+		[Description("指定したノードを強制的に更新します")]
 		public void UpdateForce(String arg)
 		{
 			FindAt(arg, item =>
 			{
-				if (item is TunnelTimerItemBase)
+				if (item is BindableTimerNodeBase)
 				{
-					var timerItem = item as TunnelTimerItemBase;
+					var timerItem = item as BindableTimerNodeBase;
 					timerItem.Force();
 				}
 
-				Console.NotifyMessage(String.Format("トンネル {0} を更新しました。", item));
+				Console.NotifyMessage(String.Format("ノード {0} を更新しました。", item));
 			});
 		}
 
-		[Description("存在するトンネルをすべて表示します")]
+		[Description("存在するノードをすべて表示します")]
 		public void List()
 		{
 			if (AddIn.Config.Items.Count == 0)
 			{
-				Console.NotifyMessage("トンネルは現在設定されていません。");
+				Console.NotifyMessage("ノードは現在設定されていません。");
 				return;
 			}
 
@@ -274,19 +276,19 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 			}
 		}
 
-		[Description("指定したトンネルを有効化します")]
+		[Description("指定したノードを有効化します")]
 		public void Enable(String arg)
 		{
 			SwitchEnable(arg, true);
 		}
 
-		[Description("指定したトンネルを無効化します")]
+		[Description("指定したノードを無効化します")]
 		public void Disable(String arg)
 		{
 			SwitchEnable(arg, false);
 		}
 
-		[Description("指定したトンネルを削除します")]
+		[Description("指定したノードを削除します")]
 		public void Remove(String arg)
 		{
 			FindAt(arg, item =>
@@ -294,39 +296,41 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 				item.Uninitialize();
 				AddIn.Config.Items.Remove(item);
 				AddIn.SaveConfig();
-				Console.NotifyMessage(String.Format("トンネル {0} を削除しました。", item));
+				Console.NotifyMessage(String.Format("ノード {0} を削除しました。", item.ToShortString()));
 			});
 		}
 
-		[Description("指定したトンネルを編集します")]
+		[Description("指定したノードを編集します")]
 		public void Edit(String arg)
 		{
 			FindAt(arg, item =>
 			{
-				// コンテキストを追加
-				TunnelEditContextBase context = Console.GetContext(item.GetContextType(), CurrentServer, CurrentSession) as TunnelEditContextBase;
+				// コンテキストを作成
+				BindEditContextBase context = Console.GetContext(item.GetContextType(), CurrentServer, CurrentSession) as BindEditContextBase;
 				context.Item = item;
 				context.IsNew = false;
 				Console.PushContext(context);
 			});
 		}
 
-		[Description("トンネルを新規追加します")]
-		public void New(String itemTypeName)
+		[Description("ノードを新規追加します")]
+		public void New(String nodeName)
 		{
 			Type tunnelType;
-			if (!AddIn.TunnelTypes.TryGetValue(itemTypeName, out tunnelType))
+			if (!AddIn.BindableNodes.TryGetValue(nodeName, out tunnelType))
 			{
-				Console.NotifyMessage("不明なトンネルの種類が指定されました。");
+				String nodeNames = String.Join("|", AddIn.BindableNodes.Select(d => d.Key).ToArray());
+				Console.NotifyMessage("不明なノードの種類が指定されました。");
+				Console.NotifyMessage(String.Format("これらのノードが指定可能です。 [{0}]", nodeNames));
 				return;
 			}
 
-			// トンネルを作成
-			TunnelItemBase item = Activator.CreateInstance(tunnelType) as TunnelItemBase;
+			// ノードを作成
+			BindableNodeBase item = Activator.CreateInstance(tunnelType) as BindableNodeBase;
 			item.Initialize(AddIn);
 
-			// コンテキストを追加
-			TunnelEditContextBase context = Console.GetContext(item.GetContextType(), CurrentServer, CurrentSession) as TunnelEditContextBase;
+			// コンテキストを作成
+			BindEditContextBase context = Console.GetContext(item.GetContextType(), CurrentServer, CurrentSession) as BindEditContextBase;
 			context.Item = item;
 			context.IsNew = true;
 			Console.PushContext(context);
@@ -337,15 +341,19 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 			FindAt(arg, item =>
 			{
 				item.Enabled = enable;
-				AddIn.SaveConfig();
-				Console.NotifyMessage(String.Format("トンネル {0} を{1}化しました。", item, (enable ? "有効" : "無効")));
 
-				if (item is TunnelTimerItemBase)
-					(item as TunnelTimerItemBase).Update();
+				if (item is BindableTimerNodeBase)
+				{
+					var timerItem = item as BindableTimerNodeBase;
+					timerItem.Update();
+				}
+
+				AddIn.SaveConfig();
+				Console.NotifyMessage(String.Format("ノード {0} を{1}化しました。", item, (enable ? "有効" : "無効")));
 			});
 		}
 
-		private void FindAt(String arg, Action<TunnelItemBase> action)
+		private void FindAt(String arg, Action<BindableNodeBase> action)
 		{
 			Int32 index;
 			if (Int32.TryParse(arg, out index))
@@ -356,25 +364,25 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 				}
 				else
 				{
-					Console.NotifyMessage("存在しないトンネルが指定されました。");
+					Console.NotifyMessage("存在しないノードが指定されました。");
 				}
 			}
 			else
 			{
-				Console.NotifyMessage("トンネルの指定が正しくありません。");
+				Console.NotifyMessage("ノードの指定が正しくありません。");
 			}
 		}
 	}
 
-	public abstract class TunnelEditContextBase : Context
+	public abstract class BindEditContextBase : Context
 	{
-		protected TunnelAddIn AddIn { get { return CurrentSession.AddInManager.GetAddIn<TunnelAddIn>(); } }
-		public TunnelItemBase Item { get; set; }
+		protected BindAddIn AddIn { get { return CurrentSession.AddInManager.GetAddIn<BindAddIn>(); } }
+		public BindableNodeBase Item { get; set; }
 		public Boolean IsNew { get; set; }
 		public override IConfiguration[] Configurations { get { return new IConfiguration[] { Item }; } }
-		public override string ContextName { get { return (IsNew ? "New" : "Edit") + Item.GetTunnelName(); } }
+		public override string ContextName { get { return (IsNew ? "New" : "Edit") + Item.GetNodeName(); } }
 
-		[Description("トンネルの設定を保存してコンテキストを終了します")]
+		[Description("ノードの設定を保存してコンテキストを終了します")]
 		public void Save()
 		{
 			OnPreSaveConfig();
@@ -385,7 +393,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 
 			OnPostSaveConfig();
 
-			Console.NotifyMessage(String.Format("トンネルの設定を{0}しました。", (IsNew ? "新規作成" : "保存")));
+			Console.NotifyMessage(String.Format("ノードの設定を{0}しました。", (IsNew ? "新規作成" : "保存")));
 			Exit();
 		}
 
@@ -434,13 +442,13 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 	}
 	#endregion
 
-	public class TunnelAddIn : AddInBase
+	public class BindAddIn : AddInBase
 	{
-		public const String DefaultSenderNick = "$Tunnel";
-		public const String DefaultChannelName = "#Tunnel";
+		public const String DefaultSenderNick = "$Bind";
+		public const String DefaultChannelName = "#Bind";
 
-		public TunnelConfiguration Config { get; set; }
-		public Dictionary<String, Type> TunnelTypes { get; set; }
+		public BindConfiguration Config { get; set; }
+		public Dictionary<String, Type> BindableNodes { get; set; }
 		private TypableMapCommandProcessor _typableMapCommands = null;
 
 		// TODO: 無理矢理過ぎるのでどうにかしたい
@@ -449,20 +457,20 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 
 		internal Boolean EnableTypableMap { get { return CurrentSession.Config.EnableTypableMap; } }
 
-		public TunnelAddIn()
+		public BindAddIn()
 		{
-			TunnelTypes = new Dictionary<String, Type>(StringComparer.OrdinalIgnoreCase);
+			BindableNodes = new Dictionary<String, Type>(StringComparer.OrdinalIgnoreCase);
 		}
 
 		public override void Initialize()
 		{
 			base.Initialize();
 
-			// アセンブリからトンネルを読み込む
-			LoadTunnels();
+			// アセンブリからノードを読み込む
+			LoadBindableNodes();
 
 			// 設定を読み込みと関連付け
-			Config = CurrentSession.AddInManager.GetConfig<TunnelConfiguration>();
+			Config = CurrentSession.AddInManager.GetConfig<BindConfiguration>();
 			foreach (var item in Config.Items)
 			{
 				item.Initialize(this);
@@ -472,7 +480,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 			CurrentSession.AddInsLoadCompleted += (sender, e) =>
 			{
 				// コンテキストを登録
-				CurrentSession.AddInManager.GetAddIn<ConsoleAddIn>().RegisterContext<TunnelContext>();
+				CurrentSession.AddInManager.GetAddIn<ConsoleAddIn>().RegisterContext<BindContext>();
 
 				// TypableMapが使えるかどうか
 				var typableMapSupport = CurrentSession.AddInManager.GetAddIn<TypableMapSupport>();
@@ -494,23 +502,26 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 		}
 
 		/// <summary>
-		/// ITunnelを継承した型を読み込む
+		/// IBindableNode を継承した型を読み込む
 		/// </summary>
-		private void LoadTunnels()
+		private void LoadBindableNodes()
 		{
 			Assembly asm = Assembly.GetExecutingAssembly();
-			Type tunnelType = typeof(ITunnel);
+			Type nodeType = typeof(IBindableNode);
 			foreach (Type type in asm.GetTypes())
 			{
-				if (tunnelType.IsAssignableFrom(type) && !type.IsAbstract && type.IsClass)
+				if (nodeType.IsAssignableFrom(type) && !type.IsAbstract && type.IsClass)
 				{
 					// いちいちインスタンス化してるのがちょっとあれ
-					ITunnel tunnel = Activator.CreateInstance(type) as ITunnel;
-					TunnelTypes[tunnel.GetTunnelName()] = type;
+					IBindableNode node = Activator.CreateInstance(type) as IBindableNode;
+					BindableNodes[node.GetNodeName()] = type;
 				}
 			}
 		}
 
+		/// <summary>
+		/// バインドされたチャンネル宛のメッセージだったら奪い取る
+		/// </summary>
 		private void CurrentSession_PreMessageReceived(object sender, MessageReceivedEventArgs e)
 		{
 			PrivMsgMessage message = e.Message as PrivMsgMessage;
@@ -523,13 +534,13 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 			{
 				foreach (var item in Config.Items)
 				{
-					var receivable = item as IMessageReceivable;
-					if (receivable != null)
+					var bindable = item as IBindableNode;
+					if (bindable != null)
 					{
-						var target = receivable.GetChannelName();
+						var target = bindable.GetChannelName();
 						if (String.Compare(target, receiver, true) == 0)
 						{
-							receivable.MessageReceived(eventArgs);
+							bindable.OnMessageReceived(eventArgs);
 						}
 					}
 				}
@@ -547,9 +558,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 		}
 
 		/// <summary>
-		/// TypableMapの情報を付与
+		/// Twitter の Status に TypableMap をつける
 		/// </summary>
-		internal String ApplyTypableMap(String str, Status status)
+		public String ApplyTypableMap(String str, Status status)
 		{
 			if (_typableMapCommands != null)
 				return ApplyTypableMap(str, status, new TypableMapStatusRepositoryWrapper(_typableMapCommands.TypableMap));
@@ -557,9 +568,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 		}
 
 		/// <summary>
-		/// TypableMapの情報を付与
+		/// 任意の型に TypableMap をつける
 		/// </summary>
-		internal String ApplyTypableMap<T>(String str, T value, ITypableMapGenericRepository<T> typableMap)
+		public String ApplyTypableMap<T>(String str, T value, ITypableMapGenericRepository<T> typableMap)
 		{
 			if (EnableTypableMap)
 			{
@@ -579,9 +590,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 		}
 
 		/// <summary>
-		/// 一定時間待つ
+		/// ClientMessageWait に設定された時間だけ眠らせる
 		/// </summary>
-		internal void ClientMessageWait()
+		public void SleepClientMessageWait()
 		{
 			if (CurrentSession.Config.ClientMessageWait > 0)
 				Thread.Sleep(CurrentSession.Config.ClientMessageWait);

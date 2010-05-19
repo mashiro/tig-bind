@@ -11,9 +11,10 @@ using Spica.Xml.Feed;
 using Misuzilla.Applications.TwitterIrcGateway;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 {
-	public class TunnelFeedItem : TunnelTimerItemBase, IMessageReceivable
+	[XmlType("Feed")]
+	public class BindableFeedNode : BindableTimerNodeBase
 	{
 		[Description("フィードの URL を指定します")]
 		public String Url { get; set; }
@@ -45,16 +46,17 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 		private DateTime _lastPublishDate = DateTime.MinValue;
 		private Boolean _isFirstTime = true;
 
-		public override String GetTunnelName() { return "Feed"; }
-		public override Type GetContextType() { return typeof(TunnelFeedEditContext); }
+		public override String GetChannelName() { return ChannelName; }
+		public override String GetNodeName() { return "Feed"; }
+		public override Type GetContextType() { return typeof(BindFeedEditContext); }
 
-		public TunnelFeedItem()
+		public BindableFeedNode()
 		{
 			Interval = 60 * 60;
 			Url = String.Empty;
 			ContentFormat = "${title} ${link}";
-			SenderNick = GetTunnelName();
-			ChannelName = "#" + GetTunnelName();
+			SenderNick = GetNodeName();
+			ChannelName = "#" + GetNodeName();
 			EnableRemoveLineBreak = false;
 			EnableRemoveHtmlTag = false;
 			Username = String.Empty;
@@ -66,7 +68,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 			_lastPublishDate = DateTime.MinValue;
 		}
 
-		public override string ToShortString()
+		public override string ToString()
 		{
 			return String.Format("{0} ({1})", Url, Interval);
 		}
@@ -75,6 +77,15 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 		{
 			return base.IsValid()
 				&& !String.IsNullOrEmpty(Url);
+		}
+
+		/// <summary>
+		/// メッセージ受信時の処理
+		/// </summary>
+		public override void OnMessageReceived(StatusUpdateEventArgs e)
+		{
+			// とりあえず殺す
+			e.Cancel = true;
 		}
 
 		/// <summary>
@@ -88,7 +99,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 				NetworkCredential credential = null;
 				if (!String.IsNullOrEmpty(Username) && !String.IsNullOrEmpty(Password))
 				{
-					String password = TunnelUtility.Decrypt(Password);
+					String password = BindUtility.Decrypt(Password);
 					credential = new NetworkCredential(Username, password);
 				}
 
@@ -114,7 +125,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 			}
 			catch (Exception ex)
 			{
-				SendException(ChannelName, ex);
+				SendException(ex);
 			}
 		}
 
@@ -126,9 +137,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 			String replacedSender = ReplaceFormattedString(SenderNick, doc, item);
 			String replacedContent = ReplaceFormattedString(ContentFormat, doc, item);
 			replacedContent = AddIn.ApplyTypableMap(replacedContent, FeedItemToStatus(item));
-			SendMessage(ChannelName, replacedSender, replacedContent, notice);
+			SendMessage(replacedSender, replacedContent, notice);
 
-			AddIn.ClientMessageWait();
+			AddIn.SleepClientMessageWait();
 		}
 
 		/// <summary>
@@ -143,7 +154,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 
 				// 改行コードを削除
 				if (EnableRemoveLineBreak)
-					s = TunnelUtility.RemoveLineBreak(s);
+					s = BindUtility.RemoveLineBreak(s);
 
 				// HTMLタグを削除
 				if (EnableRemoveHtmlTag)
@@ -197,22 +208,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 				},
 			};
 		}
-
-		#region IMessageReceivable
-		public String GetChannelName()
-		{
-			return ChannelName;
-		}
-
-		public void MessageReceived(StatusUpdateEventArgs e)
-		{
-			// とりあえず殺す
-			e.Cancel = true;
-		}
-		#endregion
 	}
 
-	public class TunnelFeedEditContext : TunnelEditContextBase
+	public class BindFeedEditContext : BindEditContextBase
 	{
 		private const String FormatMessage = @"${feed_title} - フィードのタイトル
 ${feed_link} - フィードのリンク
@@ -224,11 +222,11 @@ ${description} - 記事の説明
 ${publish_date} - 記事の公開された日時";
 
 		private Boolean _urlChanged = false;
-		public new TunnelFeedItem Item { get { return base.Item as TunnelFeedItem; } set { base.Item = value; } }
+		public new BindableFeedNode Item { get { return base.Item as BindableFeedNode; } set { base.Item = value; } }
 
 		protected override void OnConfigurationChanged(IConfiguration config, System.Reflection.MemberInfo memberInfo, object value)
 		{
-			if (config is TunnelFeedItem)
+			if (config is BindableFeedNode)
 			{
 				if (memberInfo.Name == "Url")
 					_urlChanged = true;
@@ -260,8 +258,8 @@ ${publish_date} - 記事の公開された日時";
 		[Description("BASIC 認証に使用するパスワードを設定します")]
 		public void Password(String s)
 		{
-			Item.Password = TunnelUtility.Encrypt(s);
-			Console.NotifyMessage(String.Format("Password = {0}", TunnelUtility.Decrypt(Item.Password)));
+			Item.Password = BindUtility.Encrypt(s);
+			Console.NotifyMessage(String.Format("Password = {0}", BindUtility.Decrypt(Item.Password)));
 		}
 
 		protected override void OnPreSaveConfig()

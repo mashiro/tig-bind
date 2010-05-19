@@ -9,7 +9,7 @@ using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns.TypableMap;
 using TypableMap;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
 	#region Repository
 	public interface ITypableMapGenericRepository<T>

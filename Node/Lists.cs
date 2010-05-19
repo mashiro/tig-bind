@@ -9,9 +9,10 @@ using System.IO;
 using Misuzilla.Applications.TwitterIrcGateway;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 {
-	public class TunnelListsItem : TunnelTimerItemBase, IMessageReceivable
+	[XmlType("Lists")]
+	public class BindableListsNode : BindableTimerNodeBase
 	{
 		[Description("ユーザ名、またはユーザ ID を指定します")]
 		public String UserId { get; set; }
@@ -31,20 +32,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 		private Boolean _isFirstTime = true;
 		private Int64 _sinceId = 1;
 
-		public override String GetTunnelName() { return "Lists"; }
-		public override Type GetContextType() { return typeof(TunnelListsEditContext); }
+		public override String GetChannelName() { return ChannelName; }
+		public override String GetNodeName() { return "Lists"; }
+		public override Type GetContextType() { return typeof(BindListsEditContext); }
 
-		public TunnelListsItem()
+		public BindableListsNode()
 		{
 			Interval = 90;
 			UserId = String.Empty;
 			ListId = String.Empty;
-			ChannelName = "#" + GetTunnelName();
+			ChannelName = "#" + GetNodeName();
 			FetchCount = 50;
 			Duplicate = false;
 		}
 
-		public override string ToShortString()
+		public override string ToString()
 		{
 			return String.Format("{0}/{1} ({2})", UserId, ListId, Interval);
 		}
@@ -60,6 +62,14 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 			return base.IsValid()
 				&& !String.IsNullOrEmpty(UserId)
 				&& !String.IsNullOrEmpty(ListId);
+		}
+
+		/// <summary>
+		/// メッセージ受信時の処理
+		/// </summary>
+		public override void OnMessageReceived(StatusUpdateEventArgs e)
+		{
+			// そのまま Twitter に流す。
 		}
 
 		/// <summary>
@@ -84,7 +94,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 			}
 			catch (Exception ex)
 			{
-				SendException(ChannelName, ex);
+				SendException(ex);
 			}
 		}
 
@@ -94,7 +104,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 		private void SendStatus(Status status, Boolean notice)
 		{
 			String content = AddIn.ApplyTypableMap(status.Text, status);
-			SendMessage(ChannelName, status.User.ScreenName, content, notice);
+			SendMessage(status.User.ScreenName, content, notice);
 
 			if (Duplicate)
 			{
@@ -102,7 +112,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 				AddIn.CurrentSession.ProcessTimelineStatus(status, ref friendsCheckRequired);
 			}
 
-			AddIn.ClientMessageWait();
+			AddIn.SleepClientMessageWait();
 		}
 
 		/// <summary>
@@ -131,23 +141,11 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 
 			return statuses;
 		}
-
-		#region IMessageReceivable
-		public String GetChannelName()
-		{
-			return ChannelName;
-		}
-
-		public void MessageReceived(StatusUpdateEventArgs e)
-		{
-			// そのままTwitterに流す。
-		}
-		#endregion
 	}
 
-	public class TunnelListsEditContext : TunnelEditContextBase
+	public class BindListsEditContext : BindEditContextBase
 	{
-		public new TunnelListsItem Item { get { return base.Item as TunnelListsItem; } set { base.Item = value; } }
+		public new BindableListsNode Item { get { return base.Item as BindableListsNode; } set { base.Item = value; } }
 
 		[Description("リストの取得を試みます")]
 		public void Test()

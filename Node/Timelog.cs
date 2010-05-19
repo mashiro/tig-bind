@@ -11,9 +11,10 @@ using Misuzilla.Net.Irc;
 using Misuzilla.Applications.TwitterIrcGateway;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 {
-	public class TunnelTimelogItem : TunnelTimerItemBase, IMessageReceivable
+	[XmlType("Timelog")]
+	public class BindableTimelogNode : BindableTimerNodeBase
 	{
 		[Browsable(false)]
 		public String Username { get; set; }
@@ -36,25 +37,26 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 		private Boolean _isFirstTime = true;
 		private DateTime _since = DateTime.MinValue;
 
-		public override String GetTunnelName() { return "Timelog"; }
-		public override Type GetContextType() { return typeof(TunnelTimelogEditContext); }
+		public override String GetChannelName() { return ChannelName; }
+		public override String GetNodeName() { return "Timelog"; }
+		public override Type GetContextType() { return typeof(BindTimelogEditContext); }
 
-		public TunnelTimelogItem()
+		public BindableTimelogNode()
 		{
 			Interval = 60 * 10;
 			Username = String.Empty;
 			Password = String.Empty;
-			ChannelName = "#" + GetTunnelName();
+			ChannelName = "#" + GetNodeName();
 			FetchCount = 10;
 			Api = new Timelog.Api();
 		}
 
-		public override void Initialize(TunnelAddIn addIn)
+		public override void Initialize(BindAddIn addIn)
 		{
 			base.Initialize(addIn);
 
 			Api.Username = Username;
-			Api.Password = TunnelUtility.Decrypt(Password);
+			Api.Password = BindUtility.Decrypt(Password);
 
 			_typableMapFactory = new TypableMapGenericMemoryRepositoryFactory<Timelog.Entry>();
 			_typableMapCommands = new TypableMapGenericCommandProcessor<Timelog.Entry>(_typableMapFactory, AddIn.CurrentSession, AddIn.CurrentSession.Config.TypableMapKeySize, this);
@@ -69,7 +71,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 			_since = DateTime.MinValue;
 		}
 
-		public override string ToShortString()
+		public override string ToString()
 		{
 			return String.Format("{0} ({1})", Username, Interval);
 		}
@@ -79,6 +81,28 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 			return base.IsValid()
 				&& !String.IsNullOrEmpty(Username)
 				&& !String.IsNullOrEmpty(Password);
+		}
+
+		/// <summary>
+		/// メッセージ受信時の処理
+		/// </summary>
+		public override void OnMessageReceived(StatusUpdateEventArgs e)
+		{
+			if (IsValid())
+			{
+				if (AddIn.EnableTypableMap)
+				{
+					if (_typableMapCommands.Process(e.ReceivedMessage))
+					{
+						e.Cancel = true;
+						return;
+					}
+				}
+
+				Api.New(e.Text, null);
+			}
+
+			e.Cancel = true;
 		}
 
 		/// <summary>
@@ -104,7 +128,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 			}
 			catch (Exception ex)
 			{
-				SendException(ChannelName, ex);
+				SendException(ex);
 			}
 		}
 
@@ -117,41 +141,15 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 			if (!String.IsNullOrEmpty(entry.Tag)) sb.AppendFormat(" [{0}]", entry.Tag);
 
 			String content = AddIn.ApplyTypableMap(sb.ToString(), entry, _typableMapCommands.TypableMap);
-			SendMessage(ChannelName, entry.Author.Id, content, notice);
+			SendMessage(entry.Author.Id, content, notice);
 
-			AddIn.ClientMessageWait();
+			AddIn.SleepClientMessageWait();
 		}
-
-		#region IMessageReceivable
-		public String GetChannelName()
-		{
-			return ChannelName;
-		}
-
-		public void MessageReceived(StatusUpdateEventArgs e)
-		{
-			if (IsValid())
-			{
-				if (AddIn.EnableTypableMap)
-				{
-					if (_typableMapCommands.Process(e.ReceivedMessage))
-					{
-						e.Cancel = true;
-						return;
-					}
-				}
-
-				Api.New(e.Text, null);
-			}
-
-			e.Cancel = true;
-		}
-		#endregion
 	}
 
-	public class TunnelTimelogEditContext : TunnelEditContextBase
+	public class BindTimelogEditContext : BindEditContextBase
 	{
-		public new TunnelTimelogItem Item { get { return base.Item as TunnelTimelogItem; } set { base.Item = value; } }
+		public new BindableTimelogNode Item { get { return base.Item as BindableTimelogNode; } set { base.Item = value; } }
 
 		[Description("メモの取得を試みます")]
 		public void Test()
@@ -172,9 +170,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 		[Description("パスワードを設定します")]
 		public void Password(String s)
 		{
-			Item.Password = TunnelUtility.Encrypt(s);
+			Item.Password = BindUtility.Encrypt(s);
 			Item.Api.Password = s;
-			Console.NotifyMessage(String.Format("Password = {0}", TunnelUtility.Decrypt(Item.Password)));
+			Console.NotifyMessage(String.Format("Password = {0}", BindUtility.Decrypt(Item.Password)));
 		}
 
 		protected override void OnPreSaveConfig()
@@ -247,7 +245,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel.Item
 					return true;
 				}
 
-				var item = processor.State as TunnelTimelogItem;				
+				var item = processor.State as BindableTimelogNode;				
 
 				// エコーバック
 				String replyMsg = String.Format("@{0} {1}", value.Author.Id, args);

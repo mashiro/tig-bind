@@ -7,11 +7,11 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Reflection;
 
-namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
+namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
-	public static class TunnelUtility
+	public static class BindUtility
 	{
-		private static readonly String _sharedKey = "Spica.Applications.TwitterIrcGateway.AddIns.Tunnel";
+		private static readonly String _sharedKey = "Spica.Applications.TwitterIrcGateway.AddIns.Bind";
 		private static readonly Regex _regexLineBreak = new Regex(@"\r\n|\r|\n");
 
 		#region Crypt
@@ -101,6 +101,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 		}
 		#endregion
 
+		#region LineBreak
 		/// <summary>
 		/// 改行を削除します。
 		/// </summary>
@@ -124,5 +125,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Tunnel
 		{
 			return _regexLineBreak.Split(input);
 		}
+		#endregion
 	}
 }
