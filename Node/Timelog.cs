@@ -238,7 +238,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				String data = Post("http://api.timelog.jp/new.asp", options);
 #endif
 				// 空っぽだったら失敗
-				if (!String.IsNullOrEmpty(data))
+				if (String.IsNullOrEmpty(data))
 					throw new TimelogException();
 			}
 		}

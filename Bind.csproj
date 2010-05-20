@@ -38,9 +38,6 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="TwitterIrcGatewayCore">
-      <HintPath>.\TwitterIrcGatewayCore.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ApiBase.cs" />
@@ -58,6 +55,15 @@
     <Compile Include="Xml\IFeedDocument.cs" />
     <Compile Include="Xml\Rss10.cs" />
     <Compile Include="Xml\Rss20.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Service References\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TwitterIrcGateway\trunk\TwitterIrcGatewayCore\TwitterIrcGatewayCore.csproj">
+      <Project>{8A256703-BDC7-4E96-8AC3-89A56A2AFB86}</Project>
+      <Name>TwitterIrcGatewayCore</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

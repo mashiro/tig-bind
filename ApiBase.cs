@@ -44,12 +44,19 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		public String Post(String url, NameValueCollection options)
 		{
 			HttpWebRequest webRequest = CreateHttpWebRequest(url, "POST");
+#if true
+			using (Stream stream = webRequest.GetRequestStream())
+			{
+				Byte[] postData = Encoding.GetBytes(BuildQueryString(options));
+				stream.Write(postData, 0, postData.Length);
+			}
+#else
 			using (StreamWriter streamWriter = new StreamWriter(webRequest.GetRequestStream(), Encoding))
 			{
 				String postData = BuildQueryString(options);
 				streamWriter.Write(postData);
 			}
-
+#endif
 			HttpWebResponse webResponse = webRequest.GetResponse() as HttpWebResponse;
 			using (StreamReader streamReader = new StreamReader(GetResponseStream(webResponse), Encoding))
 			{
