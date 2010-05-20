@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Net;
 using System.Xml;
 using System.Xml.Serialization;
+using System.IO;
 using Spica.Xml.Feed;
 using Misuzilla.Applications.TwitterIrcGateway;
 using Misuzilla.Applications.TwitterIrcGateway.AddIns;
@@ -94,17 +95,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		{
 			try
 			{
-				// ユーザ名とパスワードが設定されているなら BASIC 認証
-				NetworkCredential credential = null;
-				if (!String.IsNullOrEmpty(Username) && !String.IsNullOrEmpty(Password))
-				{
-					String password = BindUtility.Decrypt(Password);
-					credential = new NetworkCredential(Username, password);
-				}
-
 				// フィードを取得
-				IFeedDocument doc = FeedDocument.Load(Url, credential);
-				var items = doc.Items
+				Feed.Api api = new Feed.Api() { Username = Username, Password = BindUtility.Decrypt(Password) };
+				IFeedDocument doc = FeedDocument.Load(new StringReader(api.Get(Url, null)));
+					var items = doc.Items
 					.Where(item => item.PublishDate > _lastPublishDate)
 					.OrderBy(item => item.PublishDate)
 					.ToList();
@@ -280,6 +274,13 @@ ${publish_date} - 記事の公開された日時";
 			Item.Update();
 
 			base.OnPostSaveConfig();
+		}
+	}
+
+	namespace Feed
+	{
+		public class Api : ApiBase
+		{
 		}
 	}
 }

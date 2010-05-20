@@ -19,64 +19,70 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		private static XmlSerializerFactory _serializerFactory = new XmlSerializerFactory();
 		public String Username { get; set; }
 		public String Password { get; set; }
+		public Encoding Encoding { get; set; }
 
-		protected String Get(String url, NameValueCollection options)
+		public ApiBase()
+		{
+			Username = String.Empty;
+			Password = String.Empty;
+			Encoding = Encoding.UTF8;
+		}
+
+		public String Get(String url, NameValueCollection options)
 		{
 			if (options != null && options.Count > 0)
-				url = String.Format("{0}?{1}", url, BuildQueryString(options));
+				url += "?" + BuildQueryString(options);
+
 			HttpWebRequest webRequest = CreateHttpWebRequest(url, "GET");
 			HttpWebResponse webResponse = webRequest.GetResponse() as HttpWebResponse;
-			using (StreamReader sr = new StreamReader(GetResponseStream(webResponse)))
+			using (StreamReader streamReader = new StreamReader(GetResponseStream(webResponse), Encoding))
 			{
-				return sr.ReadToEnd();
+				return streamReader.ReadToEnd();
 			}
 		}
 
-		protected String Post(String url, NameValueCollection options)
+		public String Post(String url, NameValueCollection options)
 		{
 			HttpWebRequest webRequest = CreateHttpWebRequest(url, "POST");
-			using (Stream stream = webRequest.GetRequestStream())
+			using (StreamWriter streamWriter = new StreamWriter(webRequest.GetRequestStream(), Encoding))
 			{
-				Byte[] postData = Encoding.UTF8.GetBytes(BuildQueryString(options));
-				stream.Write(postData, 0, postData.Length);
+				String postData = BuildQueryString(options);
+				streamWriter.Write(postData);
 			}
+
 			HttpWebResponse webResponse = webRequest.GetResponse() as HttpWebResponse;
-			using (StreamReader sr = new StreamReader(GetResponseStream(webResponse)))
+			using (StreamReader streamReader = new StreamReader(GetResponseStream(webResponse), Encoding))
 			{
-				return sr.ReadToEnd();
+				return streamReader.ReadToEnd();
 			}
 		}
 
 		protected String BuildQueryString(NameValueCollection options)
 		{
-			if (options == null)
+			if (options == null || options.Count == 0)
 				return String.Empty;
 
-			StringBuilder sb = new StringBuilder();
-			foreach (String key in options.AllKeys)
+			return String.Join("&", options.AllKeys.Select(key =>
 			{
-				if (sb.Length != 0)
-					sb.Append("&");
-
 				String value = options[key];
-				if (String.IsNullOrEmpty(value))
-					sb.Append(key);
+				if (String.IsNullOrEmpty(key))
+					return value;
 				else
-					sb.AppendFormat("{0}={1}", key, value);
-			}
-
-			return sb.ToString();
+					return String.Format("{0}={1}", key, value);
+			}).ToArray());
 		}
 
 		private HttpWebRequest CreateHttpWebRequest(String url, String method)
 		{
+			var asmName = GetType().Assembly.GetName();
 			var webRequest = HttpWebRequest.Create(url) as HttpWebRequest;
-			webRequest.Credentials = new NetworkCredential(Username, Password);
 			webRequest.Method = method;
-			webRequest.UserAgent = String.Format("{0}/{1}", GetType().Assembly.GetName().Name, GetType().Assembly.GetName().Version);
+			webRequest.UserAgent = String.Format("{0}/{1}", asmName.Name, asmName.Version);
 			webRequest.ContentType = "application/x-www-form-urlencoded";
 			webRequest.Accept = "text/xml, application/xml";
-			webRequest.Headers["Accept-Encoding"] = "gzip";
+			webRequest.Headers["Accept-Encoding"] = "gzip, deflate";
+			if (!String.IsNullOrEmpty(Username) && !String.IsNullOrEmpty(Password))
+				webRequest.Credentials = new NetworkCredential(Username, Password);
 			return webRequest;
 		}
 
@@ -87,6 +93,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 				return webResponse.GetResponseStream();
 			if (String.Compare(httpWebResponse.ContentEncoding, "gzip", true) == 0)
 				return new GZipStream(webResponse.GetResponseStream(), CompressionMode.Decompress);
+			else if (String.Compare(httpWebResponse.ContentEncoding, "deflate", true) == 0)
+				return new DeflateStream(webResponse.GetResponseStream(), CompressionMode.Decompress);
 			return webResponse.GetResponseStream();
 		}
 
@@ -94,16 +102,30 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		protected static T Deserialize<T>(String data)
 			where T : class
 		{
-			return Deserialize<T>(new StringReader(data));
+			using (StringReader stringReader = new StringReader(data))
+			{
+				return Deserialize<T>(stringReader);
+			}
 		}
 
 		protected static T Deserialize<T>(TextReader reader)
 			where T : class
 		{
-			XmlSerializer xmlSerializer = null;
-			lock (_serializerFactory) { xmlSerializer = _serializerFactory.CreateSerializer(typeof(T)); }
+			XmlSerializer xmlSerializer = CreateSerializer<T>();
 			return xmlSerializer.Deserialize(reader) as T;
 		}
+
+		private static XmlSerializer CreateSerializer<T>()
+		{
+			lock (_serializerFactory)
+			{
+				return _serializerFactory.CreateSerializer(typeof(T));
+			}
+		}
 		#endregion
+	}
+
+	public class SimpleApi : ApiBase
+	{
 	}
 }
