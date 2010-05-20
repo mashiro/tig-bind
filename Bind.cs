@@ -313,6 +313,20 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			});
 		}
 
+		[Description("指定したノードを削除します")]
+		public void Remove(String arg)
+		{
+			FindAt(arg, node =>
+			{
+				node.Uninitialize();
+				AddIn.Config.Nodes.Remove(node);
+
+				AddIn.SaveConfig();
+				Console.NotifyMessage(String.Format("ノード {0} を削除しました。", node.ToShortString()));
+			});
+		}
+
+
 		[Description("指定したノードを編集します")]
 		public void Edit(String arg)
 		{
