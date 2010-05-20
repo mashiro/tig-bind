@@ -232,14 +232,16 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				options.Add("text", Uri.EscapeDataString(text));
 				if (!String.IsNullOrEmpty(reMsgId))
 					options.Add("remsgid", reMsgId);
-#if DEBUG
+#if DEBUG && false
 				String data = Post("http://api.timelog.jp/newtest.asp", options);
 #else
 				String data = Post("http://api.timelog.jp/new.asp", options);
 #endif
+				// TODO: 空だったりOKだったりどっちでも投稿できててよくわからない…。
+
 				// 空っぽだったら失敗
-				if (String.IsNullOrEmpty(data))
-					throw new TimelogException();
+				//if (String.IsNullOrEmpty(data))
+					//throw new TimelogException();
 			}
 		}
 
