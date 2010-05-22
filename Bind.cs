@@ -574,25 +574,33 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		/// </summary>
 		private void CurrentSession_PreMessageReceived(object sender, MessageReceivedEventArgs e)
 		{
-			PrivMsgMessage message = e.Message as PrivMsgMessage;
+			var message = e.Message as PrivMsgMessage;
 			if (message == null)
 				return;
 
-			var eventArgs = new BindPrivMessageReceivedEventArgs(message);
 			var receiver = message.Receiver;
 			if (!String.IsNullOrEmpty(receiver))
 			{
-				foreach (var node in Config.Nodes)
+				var nodes = Config.Nodes
+					.Where(n => String.Compare(n.GetChannelName(), receiver, true) == 0)
+					.ToList();
+
+				if (nodes.Count > 0)
 				{
-					var target = node.GetChannelName();
-					if (String.Compare(target, receiver, true) == 0)
+					var cancel = true;
+					foreach (var node in nodes)
 					{
+						var eventArgs = new BindPrivMessageReceivedEventArgs(message);
 						node.OnMessageReceived(eventArgs);
+
+						// Twitter に流したいノードでがひとつでもあったら流す
+						cancel &= eventArgs.Cancel;
 					}
+
+					// #Console とかを考慮
+					e.Cancel |= cancel;
 				}
 			}
-
-			e.Cancel |= eventArgs.Cancel;
 		}
 
 		/// <summary>
