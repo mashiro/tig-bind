@@ -16,13 +16,31 @@ using Misuzilla.Applications.TwitterIrcGateway.AddIns.TypableMap;
 
 namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
+	#region EventArgs
+	/// <summary>
+	/// PRIVメッセージ受信時イベントのデータを提供します。
+	/// </summary>
+	public class BindPrivMessageReceivedEventArgs : CancelableEventArgs
+	{
+		/// <summary>
+		/// 受信したIRCメッセージを取得します
+		/// </summary>
+		public PrivMsgMessage Message { get; set; }
+
+		public BindPrivMessageReceivedEventArgs(PrivMsgMessage msg)
+		{
+			Message = msg;
+		}
+	}
+	#endregion
+
 	#region Interface
 	public interface IBindNode
 	{
 		String GetChannelName();
 		String GetNodeName();
 		Type GetContextType();
-		void OnMessageReceived(StatusUpdateEventArgs e);
+		void OnMessageReceived(BindPrivMessageReceivedEventArgs e);
 	}
 	#endregion
 
@@ -54,7 +72,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		public abstract String GetChannelName();
 		public abstract String GetNodeName();
 		public abstract Type GetContextType();
-		public abstract void OnMessageReceived(StatusUpdateEventArgs e);
+		public abstract void OnMessageReceived(BindPrivMessageReceivedEventArgs e);
 
 		public string ToShortString()
 		{
@@ -560,8 +578,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			if (message == null)
 				return;
 
-			StatusUpdateEventArgs eventArgs = new StatusUpdateEventArgs(message, message.Content);
-			String receiver = message.Receiver;
+			var eventArgs = new BindPrivMessageReceivedEventArgs(message);
+			var receiver = message.Receiver;
 			if (!String.IsNullOrEmpty(receiver))
 			{
 				foreach (var node in Config.Nodes)

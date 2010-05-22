@@ -81,7 +81,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// メッセージ受信時の処理
 		/// </summary>
-		public override void OnMessageReceived(StatusUpdateEventArgs e)
+		public override void OnMessageReceived(BindPrivMessageReceivedEventArgs e)
 		{
 			e.Cancel = true;
 
@@ -89,10 +89,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			{
 				if (IsValid())
 				{
-					if (AddIn.EnableTypableMap && _typableMapCommands.Process(e.ReceivedMessage))
+					if (AddIn.EnableTypableMap && _typableMapCommands.Process(e.Message))
 						return;
 
-					Api.New(e.Text, null);
+					Api.New(e.Message.Content, null);
 				}
 			}
 			catch (Exception)
@@ -145,7 +145,11 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 	public class BindTimelogEditContext : BindEditContextBase
 	{
-		public new BindTimelogNode Node { get { return base.Node as BindTimelogNode; } set { base.Node = value; } }
+		public new BindTimelogNode Node
+		{
+			get { return base.Node as BindTimelogNode; } 
+			set { base.Node = value; } 
+		}
 
 		[Description("メモの取得を試みます")]
 		public void Test()
@@ -237,11 +241,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 #else
 				String data = Post("http://api.timelog.jp/new.asp", options);
 #endif
-				// TODO: 空だったりOKだったりどっちでも投稿できててよくわからない…。
-
-				// 空っぽだったら失敗
-				//if (String.IsNullOrEmpty(data))
-					//throw new TimelogException();
+				// TODO: 成功してるのにOK返さなかったりで意味がわからない…。
+				//if (String.Compare(data, "OK", true) != 0)
+				//    throw new TimelogException();
 			}
 		}
 

@@ -65,7 +65,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// メッセージ受信時の処理
 		/// </summary>
-		public override void OnMessageReceived(StatusUpdateEventArgs e)
+		public override void OnMessageReceived(BindPrivMessageReceivedEventArgs e)
 		{
 			// そのまま Twitter に流す。
 		}

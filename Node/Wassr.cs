@@ -77,7 +77,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// メッセージ受信時の処理
 		/// </summary>
-		public override void OnMessageReceived(StatusUpdateEventArgs e)
+		public override void OnMessageReceived(BindPrivMessageReceivedEventArgs e)
 		{
 			e.Cancel = true;
 
@@ -85,11 +85,11 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			{
 				if (IsValid())
 				{
-					if (AddIn.EnableTypableMap && _typableMapCommands.Process(e.ReceivedMessage))
+					if (AddIn.EnableTypableMap && _typableMapCommands.Process(e.Message))
 						return;
 				}
 
-				Api.Update(e.Text, null);
+				Api.Update(e.Message.Content, null);
 			}
 			catch (Exception)
 			{
