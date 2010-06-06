@@ -229,24 +229,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		protected abstract void OnTimerCallback(Boolean isFirstTime);
 		#endregion
 	}
-
-	public class BindConfiguration : IConfiguration
-	{
-		[Description("チャンネル作成時のモードを指定します")]
-		public String InitialModes { get; set; }
-
-		[Description("エラーを無視するかどうかを指定します")]
-		public Boolean IgnoreWatchError { get; set; }
-
-		[Browsable(false)]
-		public List<BindNodeBase> Nodes { get; set; }
-
-		public BindConfiguration()
-		{
-			InitialModes = "+pni";
-			Nodes = new List<BindNodeBase>();
-		}
-	}
 	#endregion
 
 	#region Context
@@ -492,6 +474,27 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 	}
 	#endregion
 
+	#region Configuration
+	public class BindConfiguration : IConfiguration
+	{
+		[Description("チャンネル作成時のモードを指定します")]
+		public String InitialModes { get; set; }
+
+		[Description("エラーを無視するかどうかを指定します")]
+		public Boolean IgnoreWatchError { get; set; }
+
+		[Browsable(false)]
+		public List<BindNodeBase> Nodes { get; set; }
+
+		public BindConfiguration()
+		{
+			InitialModes = "+pni";
+			IgnoreWatchError = true;
+			Nodes = new List<BindNodeBase>();
+		}
+	}
+	#endregion
+
 	public class BindAddIn : AddInBase
 	{
 		public const String DefaultSenderNick = "$Bind";
@@ -506,6 +509,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		internal new Session CurrentSession { get { return base.CurrentSession; } }
 
 		internal Boolean EnableTypableMap { get { return CurrentSession.Config.EnableTypableMap; } }
+		internal Boolean EnableCompression { get { return CurrentSession.Config.EnableCompression; } }
 
 		public BindAddIn()
 		{

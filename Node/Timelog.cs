@@ -28,10 +28,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		[Description("一回の取得につき何件取得するかを指定します (10-50)")]
 		public Int32 FetchCount { get; set; }
 
-		[Browsable(false)]
-		[XmlIgnore]
-		public Timelog.Api Api { get; private set; }
-
 		private ITypableMapGenericRepositoryFactory<Timelog.Entry> _typableMapFactory;
 		private TypableMapGenericCommandProcessor<Timelog.Entry> _typableMapCommands;
 		private DateTime _since = DateTime.MinValue;
@@ -53,12 +49,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		{
 			base.Initialize(addIn);
 
-			Api = new Timelog.Api() { Username = Username, Password = BindUtility.Decrypt(Password) };
 			_typableMapFactory = new TypableMapGenericMemoryRepositoryFactory<Timelog.Entry>();
 			_typableMapCommands = new TypableMapGenericCommandProcessor<Timelog.Entry>(_typableMapFactory, AddIn.CurrentSession, AddIn.CurrentSession.Config.TypableMapKeySize, this);
 			_typableMapCommands.AddCommand(new PermalinkCommand<Timelog.Entry>(e => String.Format("http://timelog.jp/msg/?{0}", e.Id)));
 			_typableMapCommands.AddCommand(new HomelinkCommand<Timelog.Entry>(e => String.Format("http://{0}.timelog.jp", e.Author.Id)));
 			_typableMapCommands.AddCommand(new Timelog.ReCommand());
+		}
+
+		public Timelog.Api CreateApi()
+		{
+			return new Timelog.Api()
+			{
+				Username = Username,
+				Password = BindUtility.Decrypt(Password),
+				EnableCompression = AddIn.EnableCompression,
+			};
 		}
 
 		public void Reset()
@@ -92,7 +97,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 					if (AddIn.EnableTypableMap && _typableMapCommands.Process(e.Message))
 						return;
 
-					Api.New(e.Message.Content, null);
+					var api = CreateApi();
+					api.New(e.Message.Content, null);
 				}
 			}
 			catch (Exception)
@@ -108,7 +114,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		{
 			try
 			{
-				var memos = Api.GetMemos(FetchCount, _since);
+				var api = CreateApi();
+				var memos = api.GetMemos(FetchCount, _since);
 				var entries = memos.Entry.OrderBy(e => e.Modified).ToList();
 				if (entries.Count > 0)
 				{
@@ -164,10 +171,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		public void Username(String s)
 		{
 			if (!String.IsNullOrEmpty(s))
-			{
 				Node.Username = s;
-				Node.Api.Username = s;
-			}
 			Console.NotifyMessage(String.Format("Username = {0}", Node.Username));
 		}
 
@@ -175,10 +179,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		public void Password(String s)
 		{
 			if (!String.IsNullOrEmpty(s))
-			{
 				Node.Password = BindUtility.Encrypt(s);
-				Node.Api.Password = s;
-			}
 			Console.NotifyMessage(String.Format("Password = {0}", BindUtility.Decrypt(Node.Password)));
 		}
 
@@ -369,7 +370,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				session.SendChannelMessage(msg.Receiver, node.Username, replyMsg, true, false, false, false);
 
 				// 返信
-				node.Api.New(replyMsg, value.Id);
+				var api = node.CreateApi();
+				api.New(replyMsg, value.Id);
 
 				return true;
 			}

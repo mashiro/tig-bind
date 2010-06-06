@@ -63,6 +63,16 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			Password = String.Empty;
 		}
 
+		public Feed.Api CreateApi()
+		{
+			return new Feed.Api()
+			{
+				Username = Username,
+				Password = BindUtility.Decrypt(Password),
+				EnableCompression = AddIn.EnableCompression,
+			};
+		}
+
 		public void Reset()
 		{
 			_lastPublishDate = DateTime.MinValue;
@@ -96,23 +106,26 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			try
 			{
 				// フィードを取得
-				Feed.Api api = new Feed.Api() { Username = Username, Password = BindUtility.Decrypt(Password) };
+				var api = CreateApi();
 				IFeedDocument doc = FeedDocument.Load(new StringReader(api.Get(Url, null)));
-					var items = doc.Items
-					.Where(item => item.PublishDate > _lastPublishDate)
-					.OrderBy(item => item.PublishDate)
-					.ToList();
-
-				if (items.Count > 0)
+				if (doc != null)
 				{
-					foreach (var item in items)
-					{
-						// 送信
-						Send(doc, item, isFirstTime);
-					}
+					var items = doc.Items
+						.Where(item => item.PublishDate > _lastPublishDate)
+						.OrderBy(item => item.PublishDate)
+						.ToList();
 
-					// 最終更新日時を更新
-					_lastPublishDate = items.Last().PublishDate;
+					if (items.Count > 0)
+					{
+						foreach (var item in items)
+						{
+							// 送信
+							Send(doc, item, isFirstTime);
+						}
+
+						// 最終更新日時を更新
+						_lastPublishDate = items.Last().PublishDate;
+					}
 				}
 			}
 			catch (Exception ex)
@@ -140,8 +153,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// </summary>
 		private String ReplaceFormattedString(String str, IFeedDocument doc, IFeedItem item)
 		{
-			Func<String, String> conv = s =>
+			Func<Object, String> conv = obj =>
 			{
+				var s = obj != null ? obj.ToString() : String.Empty;
 				if (String.IsNullOrEmpty(s))
 					return String.Empty;
 
@@ -160,16 +174,16 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			if (doc != null)
 			{
 				str = ReplacePlaceholder(str, "feed_title", conv(doc.Title));
-				str = ReplacePlaceholder(str, "feed_link", conv(doc.Link.ToString()));
+				str = ReplacePlaceholder(str, "feed_link", conv(doc.Link));
 				str = ReplacePlaceholder(str, "feed_description", conv(doc.Description));
 			}
 			if (item != null)
 			{
 				str = ReplacePlaceholder(str, "author", conv(item.Author));
-				str = ReplacePlaceholder(str, "link", conv(item.Link.ToString()));
+				str = ReplacePlaceholder(str, "link", conv(item.Link));
 				str = ReplacePlaceholder(str, "title", conv(item.Title));
 				str = ReplacePlaceholder(str, "description", conv(item.Description));
-				str = ReplacePlaceholder(str, "publish_date", conv(item.PublishDate.ToString()));
+				str = ReplacePlaceholder(str, "publish_date", conv(item.PublishDate));
 			}
 
 			return str;

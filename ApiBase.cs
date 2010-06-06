@@ -20,12 +20,14 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		public String Username { get; set; }
 		public String Password { get; set; }
 		public Encoding Encoding { get; set; }
+		public Boolean EnableCompression { get; set; }
 
 		public ApiBase()
 		{
 			Username = String.Empty;
 			Password = String.Empty;
 			Encoding = Encoding.UTF8;
+			EnableCompression = false;
 		}
 
 		public String Get(String url, NameValueCollection options)
@@ -80,7 +82,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			webRequest.UserAgent = String.Format("{0}/{1}", asmName.Name, asmName.Version);
 			webRequest.ContentType = "application/x-www-form-urlencoded";
 			webRequest.Accept = "text/xml, application/xml";
-			webRequest.Headers["Accept-Encoding"] = "gzip, deflate";
+			if (EnableCompression)
+				webRequest.Headers["Accept-Encoding"] = "gzip, deflate";
 			if (!String.IsNullOrEmpty(Username) && !String.IsNullOrEmpty(Password))
 				webRequest.Credentials = new NetworkCredential(Username, Password);
 			return webRequest;
@@ -91,10 +94,13 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			var httpWebResponse = webResponse as HttpWebResponse;
 			if (httpWebResponse == null)
 				return webResponse.GetResponseStream();
-			if (String.Compare(httpWebResponse.ContentEncoding, "gzip", true) == 0)
-				return new GZipStream(webResponse.GetResponseStream(), CompressionMode.Decompress);
-			else if (String.Compare(httpWebResponse.ContentEncoding, "deflate", true) == 0)
-				return new DeflateStream(webResponse.GetResponseStream(), CompressionMode.Decompress);
+			if (EnableCompression)
+			{
+				if (String.Compare(httpWebResponse.ContentEncoding, "gzip", true) == 0)
+					return new GZipStream(webResponse.GetResponseStream(), CompressionMode.Decompress);
+				else if (String.Compare(httpWebResponse.ContentEncoding, "deflate", true) == 0)
+					return new DeflateStream(webResponse.GetResponseStream(), CompressionMode.Decompress);
+			}
 			return webResponse.GetResponseStream();
 		}
 

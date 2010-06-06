@@ -25,10 +25,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		[Description("コンテンツが流れるチャンネル名を指定します")]
 		public String ChannelName { get; set; }
 
-		[Browsable(false)]
-		[XmlIgnore]
-		public Wassr.Api Api { get; private set; }
-
 		private ITypableMapGenericRepositoryFactory<Wassr.Status> _typableMapFactory;
 		private TypableMapGenericCommandProcessor<Wassr.Status> _typableMapCommands;
 		private DateTime _lastAccessDateTime = DateTime.MinValue;
@@ -49,12 +45,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		{
 			base.Initialize(addIn);
 
-			Api = new Wassr.Api() { Username = Username, Password = BindUtility.Decrypt(Password) };
 			_typableMapFactory = new TypableMapGenericMemoryRepositoryFactory<Wassr.Status>();
 			_typableMapCommands = new TypableMapGenericCommandProcessor<Wassr.Status>(_typableMapFactory, AddIn.CurrentSession, AddIn.CurrentSession.Config.TypableMapKeySize, this);
 			_typableMapCommands.AddCommand(new PermalinkCommand<Wassr.Status>(s => s.Link));
 			_typableMapCommands.AddCommand(new HomelinkCommand<Wassr.Status>(s => String.Format("http://wassr.jp/user/{0}", s.UserLoginId)));
 			_typableMapCommands.AddCommand(new Wassr.ReCommand());
+		}
+
+		public Wassr.Api CreateApi()
+		{
+			return new Wassr.Api()
+			{
+				Username = Username,
+				Password = BindUtility.Decrypt(Password),
+				EnableCompression = AddIn.EnableCompression,
+			};
 		}
 
 		public void Reset()
@@ -89,7 +94,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 						return;
 				}
 
-				Api.Update(e.Message.Content, null);
+				var api = CreateApi();
+				api.Update(e.Message.Content, null);
 			}
 			catch (Exception)
 			{
@@ -104,7 +110,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		{
 			try
 			{
-				var statuses = Api.GetFriendsTimeline().Status
+				var api = CreateApi();
+				var statuses = api.GetFriendsTimeline().Status
 					.Where(s => s.CreatedAt > _lastAccessDateTime)
 					.OrderBy(s => s.CreatedAt)
 					.ToList();
@@ -157,10 +164,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		public void Username(String s)
 		{
 			if (!String.IsNullOrEmpty(s))
-			{
 				Node.Username = s;
-				Node.Api.Username = s;
-			}
 			Console.NotifyMessage(String.Format("Username = {0}", Node.Username));
 		}
 
@@ -168,10 +172,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		public void Password(String s)
 		{
 			if (!String.IsNullOrEmpty(s))
-			{
 				Node.Password = BindUtility.Encrypt(s);
-				Node.Api.Password = s;
-			}
 			Console.NotifyMessage(String.Format("Password = {0}", BindUtility.Decrypt(Node.Password)));
 		}
 
@@ -328,7 +329,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				session.SendChannelMessage(msg.Receiver, node.Username, replyMsg, true, false, false, false);
 
 				// 返信
-				node.Api.Update(args, value.RId);
+				var api = node.CreateApi();
+				api.Update(args, value.RId);
 
 				return true;
 			}
