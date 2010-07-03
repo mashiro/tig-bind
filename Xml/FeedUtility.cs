@@ -5,6 +5,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Serialization;
 using System.Net;
+using System.Globalization;
 
 namespace Spica.Xml.Feed
 {
@@ -13,7 +14,7 @@ namespace Spica.Xml.Feed
 		public static DateTime ParseDateTime(String dateTimeString)
 		{
 			DateTime dateTime;
-			if (!DateTime.TryParse(dateTimeString, out dateTime))
+			if (!DateTime.TryParse(dateTimeString, CultureInfo.InvariantCulture, DateTimeStyles.None, out dateTime))
 				dateTime = DateTime.Now;
 
 			return dateTime;
@@ -21,10 +22,11 @@ namespace Spica.Xml.Feed
 
 		public static Uri ParseUri(String uriString)
 		{
-			if (String.IsNullOrEmpty(uriString))
+			Uri uri;
+			if (!Uri.TryCreate(uriString, UriKind.Absolute, out uri))
 				return null;
 
-			return new Uri(uriString);
+			return uri;
 		}
 	}
 }
