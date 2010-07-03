@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.ComponentModel;
 using System.Xml;
 using System.Xml.Serialization;
@@ -28,6 +29,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		[Description("一回の取得につき何件取得するかを指定します (10-50)")]
 		public Int32 FetchCount { get; set; }
 
+		[Description("メモをメモフレのみ公開にします")]
+		public Boolean FriendOnly { get; set; }
+
+		[Description("メモを非公開にします")]
+		public Boolean Private { get; set; }
+
 		private ITypableMapGenericRepositoryFactory<Timelog.Entry> _typableMapFactory;
 		private TypableMapGenericCommandProcessor<Timelog.Entry> _typableMapCommands;
 		private DateTime _since = DateTime.MinValue;
@@ -42,7 +49,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			Username = String.Empty;
 			Password = String.Empty;
 			ChannelName = "#" + GetNodeName();
-			FetchCount = 10;			
+			FetchCount = 10;
+			FriendOnly = false;
+			Private = false;
 		}
 
 		public override void Initialize(BindAddIn addIn)
@@ -64,6 +73,22 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				Password = BindUtility.Decrypt(Password),
 				EnableCompression = AddIn.EnableCompression,
 			};
+		}
+
+		public String[] ParseCommand(String input, out String text)
+		{
+			List<String> commands = new List<String>();
+			if (FriendOnly) commands.Add("/p");
+			if (Private) commands.Add("/s");
+
+			// 解析
+			text = Regex.Replace(input, "[!/](?<command>[dbtgnjcps])\\s+", m =>
+			{
+				commands.Add(String.Format("/{0}", m.Groups["command"].Value));
+				return String.Empty;
+			});
+
+			return commands.ToArray();
 		}
 
 		public void Reset()
@@ -97,8 +122,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 					if (AddIn.EnableTypableMap && _typableMapCommands.Process(e.Message))
 						return;
 
+					var text = String.Empty;
+					var commands = ParseCommand(e.Message.Content, out text);
+					var tokens = new List<String>(commands) { text };
+
 					var api = CreateApi();
-					api.New(e.Message.Content, null);
+					api.New(String.Join(" ", tokens.ToArray()), null);
 				}
 			}
 			catch (Exception)
@@ -365,8 +394,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 				var node = processor.State as BindTimelogNode;
 
+				var text = String.Empty;
+				var commands = node.ParseCommand(args, out text);
+				var tokens = new List<String>(commands) { String.Format("@{0}", value.Author.Id), text };
+
 				// エコーバック
-				String replyMsg = String.Format("@{0} {1}", value.Author.Id, args);
+				var replyMsg = String.Join(" ", tokens.ToArray());
 				session.SendChannelMessage(msg.Receiver, node.Username, replyMsg, true, false, false, false);
 
 				// 返信
