@@ -206,7 +206,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				: base(info, context) { }
 		}
 
-		public class Api : ApiBase
+		public class Api : BasicAuthApi
 		{
 			public Statuses GetFriendsTimeline()
 			{
@@ -225,7 +225,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 					throw new WassrException();
 			}
 
-			private static DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0);
+			private static readonly DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0);
 			public static DateTime EpochToDateTime(Double epoch)
 			{
 				return _epoch.AddSeconds(epoch).ToLocalTime();

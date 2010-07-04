@@ -343,8 +343,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		[Description("ノードを新規追加します")]
 		public void New(String nodeName)
 		{
-			Type tunnelType;
-			if (!AddIn.BindableNodes.TryGetValue(nodeName, out tunnelType))
+			Type nodeType;
+			if (!AddIn.BindableNodes.TryGetValue(nodeName, out nodeType))
 			{
 				String nodeNames = String.Join("|", AddIn.BindableNodes.Select(d => d.Key).ToArray());
 				Console.NotifyMessage("不明なノードの種類が指定されました。");
@@ -353,7 +353,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			}
 
 			// ノードを作成
-			BindNodeBase node = Activator.CreateInstance(tunnelType) as BindNodeBase;
+			BindNodeBase node = Activator.CreateInstance(nodeType) as BindNodeBase;
 			node.Initialize(AddIn);
 
 			// コンテキストを作成
@@ -513,7 +513,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 
 		public BindAddIn()
 		{
-			BindableNodes = new Dictionary<String, Type>(StringComparer.OrdinalIgnoreCase);
+			BindableNodes = new Dictionary<String, Type>(StringComparer.InvariantCultureIgnoreCase);
 		}
 
 		public override void Initialize()

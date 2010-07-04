@@ -63,9 +63,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			Password = String.Empty;
 		}
 
-		public Feed.Api CreateApi()
+		public BasicAuthApi CreateApi()
 		{
-			return new Feed.Api()
+			return new BasicAuthApi()
 			{
 				Username = Username,
 				Password = BindUtility.Decrypt(Password),
@@ -195,7 +195,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		private String ReplacePlaceholder(String input, String placeholder, String replacement)
 		{
 			// ${xxx}
-			return input.Replace(String.Format("${{{0}}}", placeholder), replacement);
+			return input.Replace("${" + placeholder + "}", replacement);
 		}
 
 		/// <summary>
@@ -229,7 +229,7 @@ ${description} - 記事の説明
 ${publish_date} - 記事の公開された日時";
 
 		private Boolean _urlChanged = false;
-		public new BindFeedNode Item { get { return base.Node as BindFeedNode; } set { base.Node = value; } }
+		public new BindFeedNode Node { get { return base.Node as BindFeedNode; } set { base.Node = value; } }
 
 		protected override void OnConfigurationChanged(IConfiguration config, System.Reflection.MemberInfo memberInfo, object value)
 		{
@@ -243,9 +243,9 @@ ${publish_date} - 記事の公開された日時";
 		[Description("フィードの取得を試みます")]
 		public void Test()
 		{
-			CreateGroup(Item.ChannelName);
-			Item.Reset();
-			Item.Force();
+			CreateGroup(Node.ChannelName);
+			Node.Reset();
+			Node.Force();
 			Console.NotifyMessage("フィードの取得を試みます");
 		}
 
@@ -259,16 +259,16 @@ ${publish_date} - 記事の公開された日時";
 		public void Username(String s)
 		{
 			if (!String.IsNullOrEmpty(s))
-				Item.Username = s;
-			Console.NotifyMessage(String.Format("Username = {0}", Item.Username));
+				Node.Username = s;
+			Console.NotifyMessage(String.Format("Username = {0}", Node.Username));
 		}
 
 		[Description("BASIC 認証に使用するパスワードを設定します")]
 		public void Password(String s)
 		{
 			if (!String.IsNullOrEmpty(s))
-				Item.Password = BindUtility.Encrypt(s);
-			Console.NotifyMessage(String.Format("Password = {0}", BindUtility.Decrypt(Item.Password)));
+				Node.Password = BindUtility.Encrypt(s);
+			Console.NotifyMessage(String.Format("Password = {0}", BindUtility.Decrypt(Node.Password)));
 		}
 
 		protected override void OnPreSaveConfig()
@@ -276,25 +276,18 @@ ${publish_date} - 記事の公開された日時";
 			base.OnPreSaveConfig();
 
 			if (_urlChanged)
-				Item.Reset();
+				Node.Reset();
 		}
 
 		protected override void OnPostSaveConfig()
 		{
 			// チャンネルを作成
-			CreateGroup(Item.ChannelName);
+			CreateGroup(Node.ChannelName);
 
 			// タイマーの状態を更新
-			Item.Update();
+			Node.Update();
 
 			base.OnPostSaveConfig();
-		}
-	}
-
-	namespace Feed
-	{
-		public class Api : ApiBase
-		{
 		}
 	}
 }

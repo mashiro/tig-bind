@@ -242,7 +242,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				: base(info, context) { }
 		}
 
-		public class Api : ApiBase
+		public class Api : BasicAuthApi
 		{
 			public static DateTime ParseDateTime(String str)
 			{
