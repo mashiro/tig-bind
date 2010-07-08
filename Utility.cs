@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.IO;
 using System.Security.Cryptography;
 using System.Reflection;
+using System.Globalization;
 
 namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
@@ -14,7 +15,48 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		private static readonly String _sharedKey = "Spica.Applications.TwitterIrcGateway.AddIns.Bind";
 		private static readonly Regex _regexLineBreak = new Regex(@"\r\n|\r|\n");
 
-		#region Crypt
+		#region UrlEncode/Decode
+		private const String NoEscapeCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~";
+
+		public static string UrlEncode(string s, Encoding enc)
+		{
+			StringBuilder sb = new StringBuilder();
+			foreach (var c in s)
+			{
+				if (NoEscapeCharacters.Contains((Char)c))
+				{
+					sb.Append(c);
+				}
+				else
+				{
+					var bytes = enc.GetBytes(c.ToString());
+					foreach (var b in bytes)
+					{
+						sb.Append("%" + b.ToString("X2"));
+					}
+				}
+			}
+
+			return sb.ToString();
+		}
+
+		public static string UrlDecode(string s, Encoding enc)
+		{
+			List<Byte> bytes = new List<Byte>();
+			for (int i = 0; i < s.Length; i++)
+			{
+				char c = s[i];
+				if (c == '%')
+					bytes.Add((Byte)Int32.Parse(s[++i].ToString() + s[++i].ToString(), NumberStyles.HexNumber));
+				else
+					bytes.Add((Byte)c);
+			}
+
+			return enc.GetString(bytes.ToArray(), 0, bytes.Count);
+		}
+		#endregion
+
+		#region Crypt/Decrypt
 		public static String Encrypt(String s)
 		{
 			if (!String.IsNullOrEmpty(s))

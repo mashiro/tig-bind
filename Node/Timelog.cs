@@ -67,12 +67,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		public Timelog.Api CreateApi()
 		{
-			return new Timelog.Api()
-			{
-				Username = Username,
-				Password = BindUtility.Decrypt(Password),
-				EnableCompression = AddIn.EnableCompression,
-			};
+			var api = CreateApi<Timelog.Api>();
+			api.Username = Username;
+			api.Password = BindUtility.Decrypt(Password);
+			return api;
 		}
 
 		public String[] ParseCommand(String input, out String text)
@@ -165,17 +163,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		private void Send(Timelog.Entry entry, Boolean isFirstTime)
 		{
-			// そのまんま流すといろいろ足りないので適当に整形
-			StringBuilder sb = new StringBuilder();
-			if (!String.IsNullOrEmpty(entry.ToId)) sb.AppendFormat("@{0} ", entry.ToId);
-			sb.Append(entry.Memo.Trim(new Char[] { '\r', '\n', ' ' })); // 行末の改行とかがうざいので取り除く
-			if (!String.IsNullOrEmpty(entry.Tag)) sb.AppendFormat(" [{0}]", entry.Tag);
-
-			String content = AddIn.ApplyTypableMap(sb.ToString(), entry, _typableMapCommands.TypableMap);
-			content = AddIn.ApplyDateTime(content, entry.Modified, isFirstTime);
-			SendMessage(entry.Author.Id, content, isFirstTime);
-
+			var content = AddIn.ApplyDateTime(AddIn.ApplyTypableMap(ToContent(entry), entry, _typableMapCommands.TypableMap), entry.Modified, isFirstTime);
+			var sender = !String.IsNullOrEmpty(entry.Author.FromId) ? entry.Author.FromId : entry.Author.Id;
+			SendMessage(sender, content, isFirstTime);
 			AddIn.SleepClientMessageWait();
+		}
+
+		public static String ToContent(Timelog.Entry entry)
+		{
+			return String.Join(" ", new String[]
+			{
+				!String.IsNullOrEmpty(entry.ToId) ? "@" + entry.ToId : null,
+				entry.Memo.Trim(new Char[]{ '\r', '\n', ' ' }),
+				!String.IsNullOrEmpty(entry.Author.FromId) ? "#" + entry.Author.Id : null,
+				!String.IsNullOrEmpty(entry.Tag) ? "[" + String.Join(",", entry.Tag.Split(new Char[] { ',' },  StringSplitOptions.RemoveEmptyEntries)) + "]" : null,
+			}.Where(s => !String.IsNullOrEmpty(s)).ToArray());
 		}
 	}
 
@@ -183,8 +185,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 	{
 		public new BindTimelogNode Node
 		{
-			get { return base.Node as BindTimelogNode; } 
-			set { base.Node = value; } 
+			get { return base.Node as BindTimelogNode; }
+			set { base.Node = value; }
 		}
 
 		[Description("メモの取得を試みます")]
@@ -229,19 +231,19 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		}
 	}
 
+	public class TimelogException : Exception
+	{
+		public TimelogException() { }
+		public TimelogException(string message) : base(message) { }
+		public TimelogException(string message, Exception inner) : base(message, inner) { }
+		protected TimelogException(
+		  System.Runtime.Serialization.SerializationInfo info,
+		  System.Runtime.Serialization.StreamingContext context)
+			: base(info, context) { }
+	}
+
 	namespace Timelog
 	{
-		public class TimelogException : Exception
-		{
-			public TimelogException() { }
-			public TimelogException(string message) : base(message) { }
-			public TimelogException(string message, Exception inner) : base(message, inner) { }
-			protected TimelogException(
-			  System.Runtime.Serialization.SerializationInfo info,
-			  System.Runtime.Serialization.StreamingContext context)
-				: base(info, context) { }
-		}
-
 		public class Api : BasicAuthApi
 		{
 			public static DateTime ParseDateTime(String str)
@@ -263,7 +265,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			public void New(String text, String reMsgId)
 			{
 				NameValueCollection options = new NameValueCollection();
-				options.Add("text", Uri.EscapeDataString(text));
+				options.Add("text", text);
 				if (!String.IsNullOrEmpty(reMsgId))
 					options.Add("remsgid", reMsgId);
 #if DEBUG && false
@@ -393,13 +395,14 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 				}
 
 				var node = processor.State as BindTimelogNode;
-
+				var replyTo = "@" + (!String.IsNullOrEmpty(value.Author.FromId) ? value.Author.FromId : value.Author.Id);
+				var group = !String.IsNullOrEmpty(value.Author.FromId) ? "#" + value.Author.Id : String.Empty;
 				var text = String.Empty;
 				var commands = node.ParseCommand(args, out text);
-				var tokens = new List<String>(commands) { String.Format("@{0}", value.Author.Id), text };
+				var tokens = new List<String>(commands) { replyTo, text, group };
 
 				// エコーバック
-				var replyMsg = String.Join(" ", tokens.ToArray());
+				var replyMsg = String.Join(" ", tokens.Where(s => !String.IsNullOrEmpty(s)).ToArray());
 				session.SendChannelMessage(msg.Receiver, node.Username, replyMsg, true, false, false, false);
 
 				// 返信

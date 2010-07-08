@@ -88,6 +88,15 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			return String.Format("[{0}] {1}", Enabled ? "*" : " ", ToShortString());
 		}
 
+		public TApi CreateApi<TApi>()
+			where TApi : ApiBase, new()
+		{
+			return new TApi()
+			{
+				EnableCompression = AddIn.EnableCompression
+			};
+		}
+
 		/// <summary>
 		/// バインドされたチャンネルにメッセージを送信します。
 		/// </summary>

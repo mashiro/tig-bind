@@ -62,8 +62,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 
 			return String.Join("&", options.AllKeys.Select(key =>
 			{
-				var encodedKey = UrlEncode(key, Encoding);
-				var encodedValue = UrlEncode(options[key], Encoding);
+				var encodedKey = BindUtility.UrlEncode(key, Encoding);
+				var encodedValue = BindUtility.UrlEncode(options[key], Encoding);
 				if (String.IsNullOrEmpty(encodedKey))
 					return encodedValue;
 				else
@@ -138,45 +138,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			}
 		}
 		#endregion
-		#endregion
-
-		#region Utility
-		/// <summary>
-		/// Urlエンコードします
-		/// </summary>
-		/// <seealso cref="http://d.hatena.ne.jp/kazuv3/20080605/1212656674"/>
-		public static string UrlEncode(string s, Encoding enc)
-		{
-			StringBuilder rt = new StringBuilder();
-			foreach (byte i in enc.GetBytes(s))
-				if (i == 0x20)
-					rt.Append('+');
-				else if (i >= 0x30 && i <= 0x39 || i >= 0x41 && i <= 0x5a || i >= 0x61 && i <= 0x7a)
-					rt.Append((char)i);
-				else
-					rt.Append("%" + i.ToString("X2"));
-			return rt.ToString();
-		}
-
-		/// <summary>
-		/// Urlデコードします
-		/// </summary>
-		/// <seealso cref="http://d.hatena.ne.jp/kazuv3/20080605/1212656674"/>
-		public static string UrlDecode(string s, Encoding enc)
-		{
-			List<byte> bytes = new List<byte>();
-			for (int i = 0; i < s.Length; i++)
-			{
-				char c = s[i];
-				if (c == '%')
-					bytes.Add((byte)int.Parse(s[++i].ToString() + s[++i].ToString(), NumberStyles.HexNumber));
-				else if (c == '+')
-					bytes.Add((byte)0x20);
-				else
-					bytes.Add((byte)c);
-			}
-			return enc.GetString(bytes.ToArray(), 0, bytes.Count);
-		}
 		#endregion
 	}
 

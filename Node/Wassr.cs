@@ -54,12 +54,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		public Wassr.Api CreateApi()
 		{
-			return new Wassr.Api()
-			{
-				Username = Username,
-				Password = BindUtility.Decrypt(Password),
-				EnableCompression = AddIn.EnableCompression,
-			};
+			var api = CreateApi<Wassr.Api>();
+			api.Username = Username;
+			api.Password = BindUtility.Decrypt(Password);
+			return api;
 		}
 
 		public void Reset()
@@ -193,19 +191,19 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		}
 	}
 
+	public class WassrException : Exception
+	{
+		public WassrException() { }
+		public WassrException(string message) : base(message) { }
+		public WassrException(string message, Exception inner) : base(message, inner) { }
+		protected WassrException(
+		  System.Runtime.Serialization.SerializationInfo info,
+		  System.Runtime.Serialization.StreamingContext context)
+			: base(info, context) { }
+	}
+
 	namespace Wassr
 	{
-		public class WassrException : Exception
-		{
-			public WassrException() { }
-			public WassrException(string message) : base(message) { }
-			public WassrException(string message, Exception inner) : base(message, inner) { }
-			protected WassrException(
-			  System.Runtime.Serialization.SerializationInfo info,
-			  System.Runtime.Serialization.StreamingContext context)
-				: base(info, context) { }
-		}
-
 		public class Api : BasicAuthApi
 		{
 			public Statuses GetFriendsTimeline()
@@ -217,7 +215,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			public void Update(String status, String replyStatusRId)
 			{
 				NameValueCollection options = new NameValueCollection();
-				options.Add("status", Uri.EscapeDataString(status));
+				options.Add("status", status);
 				if (!String.IsNullOrEmpty(replyStatusRId))
 					options.Add("reply_status_rid", replyStatusRId);
 				String data = Post("http://api.wassr.jp/statuses/update.json", options);
