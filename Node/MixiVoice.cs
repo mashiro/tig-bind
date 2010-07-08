@@ -27,10 +27,14 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		public String ChannelName { get; set; }
 
 		[Browsable(false)]
+		public SerializableDictionary<String, String> Patterns { get; set; }
+
+		[Browsable(false)]
 		[XmlIgnore]
 		public MixiVoice.Api Api { get; set; }
 
 		private Boolean _loggedIn = false;
+		private Boolean _hasSiteInfo = false;
 		private DateTime _since = DateTime.MinValue;
 
 		public override String GetChannelName() { return ChannelName; }
@@ -43,6 +47,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			Email = String.Empty;
 			Password = String.Empty;
 			ChannelName = "#" + GetNodeName();
+			Patterns = new SerializableDictionary<String, String>();
 		}
 
 		public override void Initialize(BindAddIn addIn)
@@ -50,7 +55,11 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			base.Initialize(addIn);
 
 			Api = CreateApi<MixiVoice.Api>();
+			UpdateSiteInfo(false);
 			Login();
+
+			// SiteInfo更新前は必ず起動に失敗するので明示的に起動する。
+			Update();
 		}
 
 		public void Login()
@@ -62,9 +71,12 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			}
 		}
 
-		public void UpdateSiteInfo()
+		public void UpdateSiteInfo(Boolean force)
 		{
-			Api.UpdateSiteInfo();
+			if (force)
+				_hasSiteInfo = Api.UpdateSiteInfo();
+			else
+				_hasSiteInfo = Api.UpdateSiteInfo(Patterns);
 		}
 
 		public void Reset()
@@ -81,7 +93,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		{
 			return base.IsValid()
 				&& !String.IsNullOrEmpty(Email)
-				&& !String.IsNullOrEmpty(Password);
+				&& !String.IsNullOrEmpty(Password)
+				&& _hasSiteInfo;
 		}
 
 		/// <summary>
@@ -182,7 +195,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		[Description("SiteInfo を更新します。")]
 		public void UpdateSiteInfo()
 		{
-			Node.UpdateSiteInfo();
+			Node.UpdateSiteInfo(true);
 			Console.NotifyMessage("SiteInfo を更新しました。");
 		}
 
@@ -219,17 +232,25 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 	{
 		public class Api : CookieAuthApi
 		{
-			private Regex _regexPostKey = null;
-			private Regex _regexVoice = null;
-			private Regex _regexName = null;
-			private Regex _regexPostTime = null;
-			private Regex _regexText = null;
+			private Dictionary<String, Regex> Regexes { get; set; }
 			private String _postKey = String.Empty;
 
 			public Api()
 			{
 				Encoding = Encoding.GetEncoding("euc-jp");
-				UpdateSiteInfo();
+				Regexes = new Dictionary<String, Regex>();
+			}
+
+			private IEnumerable<String> GetKeys()
+			{
+				return new String[] 
+				{
+					"post_key",
+					"voice",
+					"name",
+					"text",
+					"post_time",
+				};
 			}
 
 			public void Login(String email, String password)
@@ -258,27 +279,60 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			public IEnumerable<Status> GetRecentVoice()
 			{
 				var response = Get("http://mixi.jp/recent_voice.pl", null);
-				_postKey = _regexPostKey.Match(response).Groups[1].Value;
+				_postKey = Regexes["post_key"].Match(response).Groups[1].Value;
 
-				return _regexVoice.Matches(response).Cast<Match>()
+				return Regexes["voice"].Matches(response).Cast<Match>()
 					.Select(m => m.Groups[1].Value)
 					.Select(s => new Status()
 					{
-						Name = _regexName.Match(s).Groups[1].Value.Trim(),
-						PostTime = DateTime.ParseExact(_regexPostTime.Match(s).Groups[1].Value.Trim(), "yyyyMMddHHmmss", null),
-						Text = _regexText.Match(s).Groups[1].Value.Trim(),
+						Name = Regexes["name"].Match(s).Groups[1].Value.Trim(),
+						PostTime = DateTime.ParseExact(Regexes["post_time"].Match(s).Groups[1].Value.Trim(), "yyyyMMddHHmmss", null),
+						Text = Regexes["text"].Match(s).Groups[1].Value.Trim(),
 					});
 			}
 
-			public void UpdateSiteInfo()
+			public Boolean UpdateSiteInfo()
 			{
-				var json = Get("http://wedata.net/items/33692.json", null);
-				var data = Regex.Match(json, "\"data\": {(.*?)}", RegexOptions.Singleline).Groups[1].Value;
-				_regexPostKey = new Regex(GetJsonValue(data, "post_key"), RegexOptions.Singleline);
-				_regexVoice = new Regex(GetJsonValue(data, "voice"), RegexOptions.Singleline);
-				_regexName = new Regex(GetJsonValue(data, "name"), RegexOptions.Singleline);
-				_regexText = new Regex(GetJsonValue(data, "text"), RegexOptions.Singleline);
-				_regexPostTime = new Regex(GetJsonValue(data, "post_time"), RegexOptions.Singleline);
+				try
+				{
+					var json = Get("http://wedata.net/items/33692.json", null);
+					var data = Regex.Match(json, "\"data\":\\s*{(.*?)}", RegexOptions.Singleline).Groups[1].Value;
+					return GetKeys().All(key => UpdateSiteInfo(key, GetJsonValue(data, key)));
+				}
+				catch (Exception)
+				{
+					return false;
+				}
+			}
+
+			public Boolean UpdateSiteInfo(IDictionary<String, String> patterns)
+			{
+				var result = GetKeys().All(key =>
+				{
+					String pattern = null;
+					if (patterns.TryGetValue(key, out pattern))
+						return UpdateSiteInfo(key, pattern);
+					else
+						return false;
+				});
+
+				if (!result)
+				{
+					// 1件でも取得できなかったらwedataから全件更新
+					result = UpdateSiteInfo();
+					foreach (var kv in Regexes)
+					{
+						patterns[kv.Key] = kv.Value.ToString();
+					}
+				}
+
+				return result;
+			}
+
+			private Boolean UpdateSiteInfo(String key, String pattern)
+			{
+				Regexes[key] = new Regex(pattern, RegexOptions.Singleline);
+				return true;
 			}
 
 			private String GetJsonValue(String json, String name)
