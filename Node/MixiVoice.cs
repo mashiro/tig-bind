@@ -73,10 +73,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		public void UpdateSiteInfo(Boolean force)
 		{
-			if (force)
-				_hasSiteInfo = Api.UpdateSiteInfo();
-			else
-				_hasSiteInfo = Api.UpdateSiteInfo(Patterns);
+			if (force) Patterns.Clear();
+			_hasSiteInfo = Api.UpdateSiteInfo(Patterns);
 		}
 
 		public void Reset()
