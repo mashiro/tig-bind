@@ -8,8 +8,27 @@ using System.Xml.Serialization;
 
 namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
+	/// <summary>
+	/// SerializableDictionary の InnerClass にすると Mono でこける
+	/// </summary>
+	public class SerializableKeyValuePair<TKey, TValue>
+	{
+		[XmlAttribute("key")]
+		public TKey Key { get; set; }
+		[XmlText]
+		public TValue Value { get; set; }
+		public SerializableKeyValuePair() { }
+		public SerializableKeyValuePair(TKey key, TValue value) { Key = key; Value = value; }
+	}
+
+	/// <summary>
+	/// Serialize 可能な Dictionary
+	/// </summary>
+	/// <seealso cref="http://d.hatena.ne.jp/lord_hollow/20090602/p1"/>
 	public class SerializableDictionary<TKey, TValue> : Dictionary<TKey, TValue>, IXmlSerializable
 	{
+		private static XmlSerializer _serializer = new XmlSerializer(typeof(SerializableKeyValuePair<TKey, TValue>));
+
 		public XmlSchema GetSchema()
 		{
 			return null;
@@ -17,33 +36,24 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 
 		public void ReadXml(XmlReader reader)
 		{
-			var serializer = new XmlSerializer(typeof(KeyValue));
 			reader.Read();
 			while (reader.NodeType != System.Xml.XmlNodeType.EndElement)
 			{
-				var kv = serializer.Deserialize(reader) as KeyValue;
-				if (kv != null) Add(kv.Key, kv.Value);
+				var kv = _serializer.Deserialize(reader) as SerializableKeyValuePair<TKey, TValue>;
+				if (kv != null)
+				{
+					Add(kv.Key, kv.Value);
+				}
 			}
 			reader.Read();
 		}
 
 		public void WriteXml(XmlWriter writer)
 		{
-			var serializer = new XmlSerializer(typeof(KeyValue));
-			foreach (var key in Keys)
+			foreach (var kv in this)
 			{
-				serializer.Serialize(writer, new KeyValue(key, this[key]));
+				_serializer.Serialize(writer, new SerializableKeyValuePair<TKey, TValue>(kv.Key, kv.Value));
 			}
-		}
-
-		public class KeyValue
-		{
-			[XmlAttribute("key")]
-			public TKey Key { get; set; }
-			[XmlText]
-			public TValue Value { get; set; }
-			public KeyValue() { }
-			public KeyValue(TKey key, TValue value) { Key = key; Value = value; }
 		}
 	}
 }
