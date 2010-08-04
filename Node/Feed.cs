@@ -43,7 +43,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		[XmlElement(IsNullable = true)]
 		public String Password { get; set; }
 
-		private static readonly Regex _regexHtmlTag = new Regex(@"<[^>]*>");
 		private DateTime _lastPublishDate = DateTime.MinValue;
 
 		public override String GetChannelName() { return ChannelName; }
@@ -165,7 +164,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 				// HTMLタグを削除
 				if (EnableRemoveHtmlTag)
-					s = _regexHtmlTag.Replace(s, String.Empty);
+					s = BindUtility.RemoveHtmlTag(s);
 
 				// HTML デコード
 				return Utility.UnescapeCharReference(s);

@@ -12,9 +12,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
 	public static class BindUtility
 	{
-		private static readonly String _sharedKey = "Spica.Applications.TwitterIrcGateway.AddIns.Bind";
-		private static readonly Regex _regexLineBreak = new Regex(@"\r\n|\r|\n");
-
 		#region UrlEncode/Decode
 		private const String NoEscapeCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~";
 
@@ -57,6 +54,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		#endregion
 
 		#region Crypt/Decrypt
+		private static readonly String _sharedKey = "Spica.Applications.TwitterIrcGateway.AddIns.Bind";
+
 		public static String Encrypt(String s)
 		{
 			if (!String.IsNullOrEmpty(s))
@@ -143,7 +142,18 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		}
 		#endregion
 
-		#region LineBreak
+		#region Regex
+		private static readonly Regex _regexHtmlTag = new Regex(@"<[^>]*>");
+		private static readonly Regex _regexLineBreak = new Regex(@"\r\n|\r|\n");
+
+		/// <summary>
+		/// HTMLタグを削除します。
+		/// </summary>
+		public static String RemoveHtmlTag(String input)
+		{
+			return _regexHtmlTag.Replace(input, String.Empty);
+		}
+
 		/// <summary>
 		/// 改行を削除します。
 		/// </summary>

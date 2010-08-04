@@ -15,6 +15,8 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
 	public abstract class ApiBase
 	{
+		private const Int32 DefaultTimeout = 100 * 1000;
+
 		private static XmlSerializerFactory _serializerFactory = new XmlSerializerFactory();
 		public Encoding Encoding { get; set; }
 		public Boolean EnableCompression { get; set; }
@@ -25,12 +27,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			EnableCompression = false;
 		}
 
+		public String Get(String url)
+		{
+			return Get(url, null);
+		}
 		public String Get(String url, NameValueCollection options)
+		{
+			return Get(url, options, DefaultTimeout);
+		}
+		public String Get(String url, NameValueCollection options, Int32 timeout)
 		{
 			if (options != null && options.Count > 0)
 				url += "?" + BuildQueryString(options);
 
 			var webRequest = GetHttpWebRequest(url, "GET");
+			webRequest.Timeout = timeout;
 			var webResponse = GetHttpWebResponse(webRequest);
 			using (var streamReader = new StreamReader(GetResponseStream(webResponse), Encoding))
 			{
@@ -38,9 +49,18 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			}
 		}
 
+		public String Post(String url)
+		{
+			return Post(url, null);
+		}
 		public String Post(String url, NameValueCollection options)
 		{
+			return Post(url, options, DefaultTimeout);
+		}
+		public String Post(String url, NameValueCollection options, Int32 timeout)
+		{
 			var webRequest = GetHttpWebRequest(url, "POST");
+			webRequest.Timeout = timeout;
 			var postData = Encoding.GetBytes(BuildQueryString(options));
 			webRequest.ContentLength = postData.Length;
 			using (Stream stream = webRequest.GetRequestStream())
@@ -151,9 +171,14 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		public String Password { get; set; }
 
 		public BasicAuthApi()
+			: this(String.Empty, String.Empty)
 		{
-			Username = String.Empty;
-			Password = String.Empty;
+		}
+
+		public BasicAuthApi(String username, String password)
+		{
+			Username = username;
+			Password = password;
 		}
 
 		protected override void OnGetHttpWebRequest(HttpWebRequest request)

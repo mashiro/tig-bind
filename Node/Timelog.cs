@@ -79,12 +79,16 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			if (FriendOnly) commands.Add("/p");
 			if (Private) commands.Add("/s");
 
-			// 解析
-			text = Regex.Replace(input, "[!/](?<command>[dbtgnjcps])\\s+", m =>
+			// コマンドとテキストに分割
+			text = Regex.Replace(input, "[!/](?<command>[!dbtgnjcps])\\s+", m =>
 			{
-				commands.Add(String.Format("/{0}", m.Groups["command"].Value));
+				commands.Add("/" + m.Groups["command"].Value);
 				return String.Empty;
 			});
+
+			// /! があったら強制パブリック発言
+			if (commands.Contains("/!"))
+				commands.RemoveAll(c => Regex.IsMatch(c, "^/[!ps]$"));
 
 			return commands.ToArray();
 		}
@@ -143,7 +147,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			{
 				var api = CreateApi();
 				var memos = api.GetMemos(FetchCount, _since);
-				var entries = memos.Entry.OrderBy(e => e.Modified).ToList();
+				var entries = memos.Entry
+					.Where(e => e.Modified > _since) // 同じ時間のをなんども返すのでここではじく
+					.OrderBy(e => e.Modified)
+					.ToList();
 				if (entries.Count > 0)
 				{
 					foreach (var entry in entries)
@@ -152,7 +159,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 					}
 
 					_since = entries.Last().Modified;
-					_since = _since.AddMinutes(1); // 同じのをなんども返すのでちょっと加算
 				}
 			}
 			catch (Exception ex)

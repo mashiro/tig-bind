@@ -71,10 +71,11 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			}
 		}
 
-		public void UpdateSiteInfo(Boolean force)
+		public Boolean UpdateSiteInfo(Boolean force)
 		{
 			if (force) Patterns.Clear();
 			_hasSiteInfo = Api.UpdateSiteInfo(Patterns);
+			return _hasSiteInfo;
 		}
 
 		public void Reset()
@@ -193,8 +194,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		[Description("SiteInfo を更新します。")]
 		public void UpdateSiteInfo()
 		{
-			Node.UpdateSiteInfo(true);
-			Console.NotifyMessage("SiteInfo を更新しました。");
+			if (Node.UpdateSiteInfo(true))
+				Console.NotifyMessage("SiteInfo を更新しました。");
+			else
+				Console.NotifyMessage("SiteInfo の更新に失敗しました。");
 		}
 
 		protected override void OnPreSaveConfig()
@@ -285,7 +288,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 					{
 						Name = Regexes["name"].Match(s).Groups[1].Value.Trim(),
 						PostTime = DateTime.ParseExact(Regexes["post_time"].Match(s).Groups[1].Value.Trim(), "yyyyMMddHHmmss", null),
-						Text = Regexes["text"].Match(s).Groups[1].Value.Trim(),
+						Text = BindUtility.RemoveHtmlTag(Regexes["text"].Match(s).Groups[1].Value.Trim()),
 					});
 			}
 
@@ -293,7 +296,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 			{
 				try
 				{
-					var json = Get("http://wedata.net/items/33692.json", null);
+					var json = Get("http://wedata.net/items/33692.json", null, 10 * 1000);
 					var data = Regex.Match(json, "\"data\":\\s*{(.*?)}", RegexOptions.Singleline).Groups[1].Value;
 					return GetKeys().All(key => UpdateSiteInfo(key, GetJsonValue(data, key)));
 				}
@@ -335,7 +338,9 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 			private String GetJsonValue(String json, String name)
 			{
-				return Regex.Match(json.Replace("\\\\", "\\"), String.Format("\"{0}\": \"(.*?)\",?\n", name)).Groups[1].Value;
+				return Regex.Match(
+					json.Replace("\\\\", "\\"),
+					String.Format("\"{0}\": \"(.*?)\",?\n", name)).Groups[1].Value;
 			}
 		}
 
