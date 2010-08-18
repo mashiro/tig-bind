@@ -67,7 +67,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		public override string ToString()
 		{
-			return String.Format("{0} ({1})", Username, Interval);
+			return String.Format("{0}", Username);
 		}
 
 		protected override bool IsValid()

@@ -64,12 +64,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		public BasicAuthApi CreateApi()
 		{
-			return new BasicAuthApi()
-			{
-				Username = Username,
-				Password = BindUtility.Decrypt(Password),
-				EnableCompression = AddIn.EnableCompression,
-			};
+			var api = CreateApi<BasicAuthApi>();
+			api.Username = Username;
+			api.Password = BindUtility.Decrypt(Password);
+			return api;
 		}
 
 		public void Reset()
@@ -79,7 +77,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		public override string ToString()
 		{
-			return String.Format("{0} ({1})", Url, Interval);
+			return String.Format("{0}", Url);
 		}
 
 		protected override bool IsValid()
@@ -140,7 +138,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		{
 			String replacedSender = ReplaceFormattedString(SenderNick, doc, item);
 			String replacedContent = ReplaceFormattedString(ContentFormat, doc, item);
-			replacedContent = AddIn.ApplyTypableMap(replacedContent, FeedItemToStatus(item));
+			replacedContent = AddIn.ApplyTypableMap(replacedContent, ToTwitterStatus(item));
 			replacedContent = AddIn.ApplyDateTime(replacedContent, item.PublishDate, isFirstTime);
 			SendMessage(replacedSender, replacedContent, isFirstTime);
 
@@ -200,7 +198,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 		/// <summary>
 		/// FeedItem から Status に無理矢理変換
 		/// </summary>
-		private Status FeedItemToStatus(IFeedItem item)
+		private Status ToTwitterStatus(IFeedItem item)
 		{
 			return new Status()
 			{

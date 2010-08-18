@@ -74,17 +74,17 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		public abstract Type GetContextType();
 		public abstract void OnMessageReceived(BindPrivMessageReceivedEventArgs e);
 
-		public string ToShortString()
+		public virtual string ToShortString()
 		{
-			// Feed - http://example.com (3600)
-			// Lists - UserId/ListId (60)
+			// Feed - http://example.com
+			// Lists - UserId/ListId
 			return String.Format("{0} - {1}", GetNodeName(), ToString());
 		}
 
-		public string ToLongString()
+		public virtual string ToLongString()
 		{
-			// [*] Feed - http://example.com (3600)
-			// [ ] Lists - UserId/ListId (60)
+			// [*] Feed - http://example.com
+			// [ ] Lists - UserId/ListId
 			return String.Format("[{0}] {1}", Enabled ? "*" : " ", ToShortString());
 		}
 
@@ -159,6 +159,13 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			base.Uninitialize();
 		}
 
+		public override string ToShortString()
+		{
+			// Feed - http://example.com (3600)
+			// Lists - UserId/ListId (60)
+			return String.Format("{0} - {1} ({2})", GetNodeName(), ToString(), Interval);
+		}
+
 		protected virtual Boolean IsValid()
 		{
 			return Enabled;
@@ -223,10 +230,10 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 				try
 				{
 					OnTimerCallback(_isFirstTime);
+					_isFirstTime = false;
 				}
 				finally
-				{
-					_isFirstTime = false;
+				{					
 					Monitor.Exit(_timerSync);
 				}
 			}
@@ -241,7 +248,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 	#endregion
 
 	#region Context
-	[Description("バインドするノードの設定を行うコンテキストに切り替えます")]
+	[Description("チャンネルにバインドさせるノードの設定を行うコンテキストに切り替えます")]
 	public class BindContext : Context
 	{
 		private BindAddIn AddIn { get { return CurrentSession.AddInManager.GetAddIn<BindAddIn>(); } }

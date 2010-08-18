@@ -85,7 +85,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		public override string ToString()
 		{
-			return String.Format("{0} ({1})", Email, Interval);
+			return String.Format("{0}", Email);
 		}
 
 		protected override bool IsValid()

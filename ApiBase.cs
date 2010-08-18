@@ -15,6 +15,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 {
 	public abstract class ApiBase
 	{
+		public enum Method { Get, Post };
 		private const Int32 DefaultTimeout = 100 * 1000;
 
 		private static XmlSerializerFactory _serializerFactory = new XmlSerializerFactory();
@@ -27,52 +28,45 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			EnableCompression = false;
 		}
 
-		public String Get(String url)
+		public String Get(String url, NameValueCollection options = null, Int32 timeout = DefaultTimeout)
 		{
-			return Get(url, null);
-		}
-		public String Get(String url, NameValueCollection options)
-		{
-			return Get(url, options, DefaultTimeout);
-		}
-		public String Get(String url, NameValueCollection options, Int32 timeout)
-		{
-			if (options != null && options.Count > 0)
-				url += "?" + BuildQueryString(options);
-
-			var webRequest = GetHttpWebRequest(url, "GET");
-			webRequest.Timeout = timeout;
-			var webResponse = GetHttpWebResponse(webRequest);
-			using (var streamReader = new StreamReader(GetResponseStream(webResponse), Encoding))
+			using (var stream = Open(url, Method.Get, options, timeout))
+			using (var streamReader = new StreamReader(stream, Encoding))
 			{
 				return streamReader.ReadToEnd();
 			}
 		}
 
-		public String Post(String url)
+		public String Post(String url, NameValueCollection options = null, Int32 timeout = DefaultTimeout)
 		{
-			return Post(url, null);
-		}
-		public String Post(String url, NameValueCollection options)
-		{
-			return Post(url, options, DefaultTimeout);
-		}
-		public String Post(String url, NameValueCollection options, Int32 timeout)
-		{
-			var webRequest = GetHttpWebRequest(url, "POST");
-			webRequest.Timeout = timeout;
-			var postData = Encoding.GetBytes(BuildQueryString(options));
-			webRequest.ContentLength = postData.Length;
-			using (Stream stream = webRequest.GetRequestStream())
-			{
-				stream.Write(postData, 0, postData.Length);
-			}
-
-			var webResponse = GetHttpWebResponse(webRequest);
-			using (var streamReader = new StreamReader(GetResponseStream(webResponse), Encoding))
+			using (var stream = Open(url, Method.Post, options, timeout))
+			using (var streamReader = new StreamReader(stream, Encoding))
 			{
 				return streamReader.ReadToEnd();
 			}
+		}
+
+		public Stream Open(String url, Method method, NameValueCollection options = null, Int32 timeout = DefaultTimeout)
+		{
+			var query = BuildQueryString(options);
+			if (method == Method.Get && !String.IsNullOrEmpty(query))
+				url += "?" + query;
+
+			var webRequest = GetHttpWebRequest(url, method.ToString().ToUpper());
+			webRequest.Timeout = timeout;
+
+			if (method == Method.Post)
+			{
+				var postData = Encoding.GetBytes(query);
+				webRequest.ContentLength = postData.Length;
+				using (var stream = webRequest.GetRequestStream())
+				{
+					stream.Write(postData, 0, postData.Length);
+				}
+			}
+
+			var webResponse = GetHttpWebResponse(webRequest);
+			return GetResponseStream(webResponse);
 		}
 
 		protected String BuildQueryString(NameValueCollection options)
@@ -80,15 +74,21 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			if (options == null || options.Count == 0)
 				return String.Empty;
 
-			return String.Join("&", options.AllKeys.Select(key =>
-			{
-				var encodedKey = BindUtility.UrlEncode(key, Encoding);
-				var encodedValue = BindUtility.UrlEncode(options[key], Encoding);
-				if (String.IsNullOrEmpty(encodedKey))
-					return encodedValue;
-				else
-					return String.Format("{0}={1}", encodedKey, encodedValue);
-			}).ToArray());
+			var queries = options.AllKeys
+				.Select(key => new { Key = key, Value = options[key] })
+				.Where(pair => !String.IsNullOrEmpty(pair.Value))
+				.Select(pair =>
+				{
+					var encodedKey = ApiBase.UrlEncode(pair.Key, Encoding);
+					var encodedValue = ApiBase.UrlEncode(pair.Value, Encoding);
+					if (String.IsNullOrEmpty(encodedKey))
+						return encodedValue;
+					else
+						return encodedKey + "=" + encodedValue;
+				})
+				.ToArray();
+
+			return String.Join("&", queries);
 		}
 
 		protected virtual void OnGetHttpWebRequest(HttpWebRequest request) { }
@@ -156,6 +156,47 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 			{
 				return _serializerFactory.CreateSerializer(typeof(T));
 			}
+		}
+		#endregion
+
+		#region UrlEncode/Decode
+		private const String NoEscapeCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~";
+
+		public static string UrlEncode(string s, Encoding enc)
+		{
+			StringBuilder sb = new StringBuilder();
+			foreach (var c in s)
+			{
+				if (NoEscapeCharacters.Contains((Char)c))
+				{
+					sb.Append(c);
+				}
+				else
+				{
+					var bytes = enc.GetBytes(c.ToString());
+					foreach (var b in bytes)
+					{
+						sb.Append("%" + b.ToString("X2"));
+					}
+				}
+			}
+
+			return sb.ToString();
+		}
+
+		public static string UrlDecode(string s, Encoding enc)
+		{
+			List<Byte> bytes = new List<Byte>();
+			for (int i = 0; i < s.Length; i++)
+			{
+				char c = s[i];
+				if (c == '%')
+					bytes.Add((Byte)Int32.Parse(s[++i].ToString() + s[++i].ToString(), NumberStyles.HexNumber));
+				else
+					bytes.Add((Byte)c);
+			}
+
+			return enc.GetString(bytes.ToArray(), 0, bytes.Count);
 		}
 		#endregion
 		#endregion

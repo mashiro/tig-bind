@@ -47,7 +47,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind.Node
 
 		public override string ToString()
 		{
-			return String.Format("{0}/{1} ({2})", UserId, ListId, Interval);
+			return String.Format("{0}/{1}", UserId, ListId);
 		}
 
 		public void Reset()
