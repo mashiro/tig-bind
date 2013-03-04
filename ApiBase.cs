@@ -48,7 +48,7 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 
 		public Stream Open(String url, Method method, NameValueCollection options = null, Int32 timeout = DefaultTimeout)
 		{
-			var query = BuildQueryString(options);
+			var query = BindUtility.BuildQueryString(options, Encoding);
 			if (method == Method.Get && !String.IsNullOrEmpty(query))
 				url += "?" + query;
 
@@ -67,28 +67,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 
 			var webResponse = GetHttpWebResponse(webRequest);
 			return GetResponseStream(webResponse);
-		}
-
-		protected String BuildQueryString(NameValueCollection options)
-		{
-			if (options == null || options.Count == 0)
-				return String.Empty;
-
-			var queries = options.AllKeys
-				.Select(key => new { Key = key, Value = options[key] })
-				.Where(pair => !String.IsNullOrEmpty(pair.Value))
-				.Select(pair =>
-				{
-					var encodedKey = ApiBase.UrlEncode(pair.Key, Encoding);
-					var encodedValue = ApiBase.UrlEncode(pair.Value, Encoding);
-					if (String.IsNullOrEmpty(encodedKey))
-						return encodedValue;
-					else
-						return encodedKey + "=" + encodedValue;
-				})
-				.ToArray();
-
-			return String.Join("&", queries);
 		}
 
 		protected virtual void OnGetHttpWebRequest(HttpWebRequest request) { }
@@ -159,46 +137,6 @@ namespace Spica.Applications.TwitterIrcGateway.AddIns.Bind
 		}
 		#endregion
 
-		#region UrlEncode/Decode
-		private const String NoEscapeCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.~";
-
-		public static string UrlEncode(string s, Encoding enc)
-		{
-			StringBuilder sb = new StringBuilder();
-			foreach (var c in s)
-			{
-				if (NoEscapeCharacters.Contains((Char)c))
-				{
-					sb.Append(c);
-				}
-				else
-				{
-					var bytes = enc.GetBytes(c.ToString());
-					foreach (var b in bytes)
-					{
-						sb.Append("%" + b.ToString("X2"));
-					}
-				}
-			}
-
-			return sb.ToString();
-		}
-
-		public static string UrlDecode(string s, Encoding enc)
-		{
-			List<Byte> bytes = new List<Byte>();
-			for (int i = 0; i < s.Length; i++)
-			{
-				char c = s[i];
-				if (c == '%')
-					bytes.Add((Byte)Int32.Parse(s[++i].ToString() + s[++i].ToString(), NumberStyles.HexNumber));
-				else
-					bytes.Add((Byte)c);
-			}
-
-			return enc.GetString(bytes.ToArray(), 0, bytes.Count);
-		}
-		#endregion
 		#endregion
 	}
 

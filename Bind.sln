@@ -1,0 +1,75 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Express 2012 for Windows Desktop
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bind", "Bind.csproj", "{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TwitterIrcGateway", "..\TwitterIrcGateway\trunk\TwitterIrcGateway\TwitterIrcGateway.csproj", "{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{DA7E4C48-9000-4453-9B46-625C19372DF6}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\NuGet.Config = .nuget\NuGet.Config
+		.nuget\NuGet.exe = .nuget\NuGet.exe
+		.nuget\NuGet.targets = .nuget\NuGet.targets
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Hosting Debug|Any CPU = Hosting Debug|Any CPU
+		Hosting Debug|x64 = Hosting Debug|x64
+		Hosting Debug|x86 = Hosting Debug|x86
+		Hosting Release|Any CPU = Hosting Release|Any CPU
+		Hosting Release|x64 = Hosting Release|x64
+		Hosting Release|x86 = Hosting Release|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Hosting Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Hosting Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Hosting Debug|x64.ActiveCfg = Debug|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Hosting Debug|x86.ActiveCfg = Debug|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Hosting Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Hosting Release|Any CPU.Build.0 = Release|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Hosting Release|x64.ActiveCfg = Release|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Hosting Release|x86.ActiveCfg = Release|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Release|x64.ActiveCfg = Release|Any CPU
+		{E34F0EDB-9E83-4D68-91C0-7A8191003DDF}.Release|x86.ActiveCfg = Release|Any CPU
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Debug|x64.ActiveCfg = Debug|x64
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Debug|x64.Build.0 = Debug|x64
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Debug|x86.ActiveCfg = Debug|x86
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Debug|x86.Build.0 = Debug|x86
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Debug|Any CPU.ActiveCfg = Hosting Debug|Any CPU
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Debug|Any CPU.Build.0 = Hosting Debug|Any CPU
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Debug|x64.ActiveCfg = Hosting Debug|x64
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Debug|x64.Build.0 = Hosting Debug|x64
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Debug|x86.ActiveCfg = Hosting Debug|x86
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Debug|x86.Build.0 = Hosting Debug|x86
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Release|Any CPU.ActiveCfg = Hosting Release|Any CPU
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Release|Any CPU.Build.0 = Hosting Release|Any CPU
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Release|x64.ActiveCfg = Hosting Release|x64
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Release|x64.Build.0 = Hosting Release|x64
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Release|x86.ActiveCfg = Hosting Release|x86
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Hosting Release|x86.Build.0 = Hosting Release|x86
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Release|x64.ActiveCfg = Release|x64
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Release|x64.Build.0 = Release|x64
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Release|x86.ActiveCfg = Release|x86
+		{1D1391F6-74ED-4FDF-8C27-0BD421D0FF4D}.Release|x86.Build.0 = Release|x86
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
